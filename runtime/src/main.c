@@ -370,7 +370,39 @@ static HdPost finishing(int scale, float t) {
 
 /* After each game frame: the frame's layers for the renderer, and combat info and stats.
  * `live` is false while rewinding and in headless runs: nothing is counted or felt then. */
+/* Autosave: the story's flags are a bit array of 512 (the event scripts set them at $3079E),
+ * live at $FFC500 and copied into the game's own save at $FFFE0A when it saves ($30B98).
+ * When one is newly set during play, a save state goes to the autosave slot two seconds
+ * later (a scene that sets several makes one save). A jump of many flags at once is a
+ * loaded state or save, not progress. */
+#define STORY_FLAGS 0xC500              /* the live copy; $FE0A holds them as of the last save */
+#define STORY_BYTES 64
+static uint8_t story_seen[STORY_BYTES];
+static bool story_have, autosave_done;
+static int autosave_in;                 /* frames until the autosave, 0: none due */
+static bool autosave_test;              /* --autosave-test: watch in test runs too */
+extern bool combat_log;
+
+static void story_watch(void) {
+    const uint8_t *f = &bus.ram[STORY_FLAGS];
+    bool play = (bus.ram[0xAC00] | bus.ram[0xAC01]) != 0;
+    if (!play) { story_have = false; autosave_in = 0; return; }
+    if (story_have) {
+        int gained = 0;
+        for (int i = 0; i < STORY_BYTES; i++)
+            for (uint8_t b = (uint8_t)(f[i] & ~story_seen[i]); b; b &= (uint8_t)(b - 1)) gained++;
+        if (gained > 0 && gained <= 6 && settings.autosave) autosave_in = 120;
+    }
+    memcpy(story_seen, f, STORY_BYTES);
+    story_have = true;
+    if (autosave_in && --autosave_in == 0) {
+        autosave_done = savestate_save(AUTOSAVE_SLOT, framebuffer, frame_width(), vdp_screen_height(), FB_W);
+        if (combat_log) printf("autosaved\n");
+    }
+}
+
 static void after_frame(bool live) {
+    if (live || autosave_test) story_watch();
     if (!vdp_opts.hd_capture) return;
     hd_frame_done();
     HdPost here = finishing(1, 0);
@@ -595,6 +627,7 @@ void console_attach(void);           /* console.c */
  * the internal resolution with every effect, into screenshots/ next to the game. */
 static bool photo, photo_hud = true, photo_test;
 static uint16_t autopilot;              /* --autopilot: the attack button, 0 off */
+static int dump_ram_at = -1, dump_ram_len;   /* --dump-ram ADDR LEN: work RAM printed after a test run */
 static double photo_hint_at;            /* when the hint bar was last shown (seconds) */
 static char photo_hint_text[200];
 static SDL_Texture *photo_hint_tex;
@@ -781,6 +814,11 @@ int main(int argc, char **argv) {
             sprite_every = atoi(argv[++i]);
             sprite_dir = argv[++i];
             settings.internal_scale = atoi(argv[++i]);
+        }
+        else if (!strcmp(argv[i], "--autosave-test")) autosave_test = true;   /* autosave in test runs too */
+        else if (!strcmp(argv[i], "--dump-ram") && i + 2 < argc) {   /* ADDR LEN, hex address in work RAM */
+            dump_ram_at = (int)(strtol(argv[++i], NULL, 16) & 0xFFFF);
+            dump_ram_len = atoi(argv[++i]);
         }
         else if (!strcmp(argv[i], "--autopilot") && i + 1 < argc) {   /* A, B or C: the button it attacks with */
             char c = argv[++i][0];
@@ -1047,6 +1085,12 @@ int main(int argc, char **argv) {
                 fclose(df);
             }
         }
+        if (dump_ram_at >= 0)
+            for (int k = 0; k < dump_ram_len; k++) {
+                if (k % 16 == 0) printf("ram %06X:", 0xFF0000 + ((dump_ram_at + k) & 0xFFFF));
+                printf(" %02X", bus.ram[(dump_ram_at + k) & 0xFFFF]);
+                if (k % 16 == 15 || k == dump_ram_len - 1) printf("\n");
+            }
         if (shot && save_shot(shot) != 0) fprintf(stderr, "could not save %s\n", shot);
         if (filter_shot) {
             SDL_InitSubSystem(SDL_INIT_VIDEO);
@@ -1393,6 +1437,7 @@ int main(int argc, char **argv) {
                 sound_out_count = 0;            /* at the start of the buffer: hold the picture */
             }
             save_sram();
+            if (autosave_done) { autosave_done = false; NOTIFY("Autosaved"); }
 
             char title[160];
             if (rewinding) snprintf(title, sizeof title, "Crusader of Centy - Rewinding (%.1f s left)", rewind_frames() * machine_frame_s());

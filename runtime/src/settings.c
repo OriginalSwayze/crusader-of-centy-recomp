@@ -18,6 +18,7 @@ Settings settings = {
     .rewind = true,
     .rewind_mb = 64,
     .state_slot = 1,
+    .autosave = true,
     .show_launcher = true,
     .volume = 60,
     .avx2 = true,
@@ -81,6 +82,7 @@ void settings_load(const char *path) {
         else if (!strcmp(k, "combat_info")) settings.combat_info = atoi(v);
         else if (!strcmp(k, "rumble")) settings.rumble = atoi(v);
         else if (!strcmp(k, "play_timer")) settings.play_timer = parse_bool(v);
+        else if (!strcmp(k, "autosave")) settings.autosave = parse_bool(v);
         else if (!strcmp(k, "fast_speed")) settings.fast_speed = atoi(v);
         else if (!strcmp(k, "rewind")) settings.rewind = parse_bool(v);
         else if (!strcmp(k, "rewind_mb")) settings.rewind_mb = atoi(v);
@@ -179,6 +181,7 @@ void settings_save(const char *path) {
     fprintf(f, "combat_info=%d\n", settings.combat_info);
     fprintf(f, "rumble=%d\n", settings.rumble);
     fprintf(f, "play_timer=%d\n", settings.play_timer);
+    fprintf(f, "autosave=%d\n", settings.autosave);
     fprintf(f, "fast_speed=%d\n", settings.fast_speed);
     fprintf(f, "rewind=%d\n", settings.rewind);
     fprintf(f, "rewind_mb=%d\n", settings.rewind_mb);
@@ -238,6 +241,7 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_COMBAT:     snprintf(out, n, "%s", settings.combat_info == 2 ? "Numbers and bars" : settings.combat_info ? "Numbers" : "Off"); break;
     case OPT_RUMBLE:     snprintf(out, n, "%s", settings.rumble == 2 ? "Strong" : settings.rumble ? "Light" : "Off"); break;
     case OPT_TIMER:      snprintf(out, n, "%s", on_off(settings.play_timer)); break;
+    case OPT_AUTOSAVE:   snprintf(out, n, "%s", on_off(settings.autosave)); break;
     case OPT_FAST:       snprintf(out, n, "%d\xC3\x97", settings.fast_speed + 2); break;
     case OPT_REWIND_ALL:
         if (!settings.rewind) snprintf(out, n, "Off");
@@ -273,7 +277,7 @@ int settings_cycle(int v, int count, int dir) { return ((v + dir) % count + coun
 
 bool settings_option_is_switch(int id) {
     switch (id) {
-    case OPT_INTEGER: case OPT_FLICKER: case OPT_WATER: case OPT_DUMP: case OPT_CHEAT_HEALTH: case OPT_TIMER:
+    case OPT_INTEGER: case OPT_FLICKER: case OPT_WATER: case OPT_DUMP: case OPT_CHEAT_HEALTH: case OPT_TIMER: case OPT_AUTOSAVE:
     case OPT_LAUNCHER: case OPT_PERF_STATS: case OPT_AUTO_QUALITY: case OPT_GPU: case OPT_MERGED: case OPT_AVX2:
         return true;
     default:
@@ -322,6 +326,7 @@ void settings_option_change(int id, int dir) {
     case OPT_COMBAT:     settings.combat_info = settings_cycle(settings.combat_info, 3, dir); break;
     case OPT_RUMBLE:     settings.rumble = settings_cycle(settings.rumble, 3, dir); break;
     case OPT_TIMER:      settings.play_timer = !settings.play_timer; break;
+    case OPT_AUTOSAVE:   settings.autosave = !settings.autosave; break;
     case OPT_FAST:       settings.fast_speed = settings_cycle(settings.fast_speed, 3, dir); break;
     case OPT_REWIND_ALL: {
         int cur = 0;                    /* 0 = off, 1.. = rewind_sizes */

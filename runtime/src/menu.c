@@ -23,7 +23,7 @@
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION, ITEM_PAGE } ItemKind;
 enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED,
-       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO };
+       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO, ACT_AUTOLOAD };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 /* ---- The pages --------------------------------------------------------------------------- */
@@ -31,8 +31,9 @@ enum { PAGE_HOME, PAGE_SETTINGS, PAGE_DISPLAY, PAGE_EFFECTS, PAGE_GAMEPLAY, PAGE
 #define MAX_ROWS 10
 typedef struct { const char *title; int count; Item items[MAX_ROWS]; } Page;
 
-static const Page home_pause = { "Paused", 9, {
+static const Page home_pause = { "Paused", 10, {
     { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
+    { ITEM_ACTION, "Load autosave", ACT_AUTOLOAD },
     { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Photo mode", ACT_PHOTO }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
     { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } } };
 /* The launcher's home: Continue appears when there is a save state to continue from. */
@@ -54,10 +55,10 @@ static const Page pages[PAGES] = {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
         { ITEM_OPTION, "Water", OPT_WATER },
         { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
-    [PAGE_GAMEPLAY] = { "Gameplay", 8, {
+    [PAGE_GAMEPLAY] = { "Gameplay", 9, {
         { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
         { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER },
-        { ITEM_OPTION, "Fast-forward", OPT_FAST }, { ITEM_OPTION, "Rewind", OPT_REWIND_ALL },
+        { ITEM_OPTION, "Autosave", OPT_AUTOSAVE }, { ITEM_OPTION, "Fast-forward", OPT_FAST }, { ITEM_OPTION, "Rewind", OPT_REWIND_ALL },
         { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } } },
     [PAGE_SOUND] = { "Sound", 2, { { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO } } },
     [PAGE_GENERAL] = { "General", 2, {
@@ -78,6 +79,7 @@ static const char *about(const Item *it) {
     if (it->kind == ITEM_ACTION)
         switch (it->id) {
         case ACT_RESUME: return "Back to the game.";
+        case ACT_AUTOLOAD: return "Goes back to the last autosave, made each time the story moves on (Gameplay > Autosave).";
         case ACT_PHOTO: return "Freezes the game for a picture: hide the HUD, then save it at the internal resolution with every effect. F9 in play.";
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
@@ -110,6 +112,7 @@ static const char *about(const Item *it) {
     case OPT_CHEAT_HEALTH: return "Hits take nothing, and your apples stay full.";
     case OPT_COMBAT: return "The damage of every hit rises from the enemy as a number; with bars, a health bar shows over an enemy after each hit.";
     case OPT_RUMBLE: return "The controller rumbles when you land a hit, harder for a defeat and when you are hit.";
+    case OPT_AUTOSAVE: return "Saves a state to its own slot each time the story moves on. Load it from the pause menu, or Continue from the launcher.";
     case OPT_TIMER: return "This session's play time in the corner of the picture. The total is under Stats.";
     case OPT_FAST: return "How fast the game runs while the fast-forward key is held (Tab, or RB).";
     case OPT_REWIND_ALL: return "Hold the rewind key (Backspace, or LB) to step back in time. The size is how far back it goes.";
@@ -270,7 +273,7 @@ static void find_latest(void) {
     savestate_info_free(&latest);
     latest_slot = 0;
     time_t best = 0;
-    for (int k = 1; k <= 9; k++) {
+    for (int k = 1; k <= AUTOSAVE_SLOT; k++) {
         SlotInfo info = { 0 };
         if (savestate_info(k, &info) && info.exists && info.saved_at > best) {
             savestate_info_free(&latest);
@@ -480,6 +483,11 @@ static MenuAction act(int dir, bool activate) {
         switch (it->id) {
         case ACT_RESUME: return MENU_CLOSE;
         case ACT_PHOTO: sound(1); return MENU_PHOTO;
+        case ACT_AUTOLOAD:
+            if (savestate_load(AUTOSAVE_SLOT)) { sound(1); return MENU_LOADED; }
+            notify("No autosave yet");
+            sound(3);
+            return MENU_NONE;
         case ACT_PLAY: sound(1); return MENU_PLAY;
         case ACT_CONTINUE: sound(1); return MENU_CONTINUE;
         case ACT_ROM: sound(1); return MENU_ROM;
@@ -665,9 +673,10 @@ static void draw_side(float t, float alpha) {
         draw_picture(latest.thumb, latest.w, latest.h, PIC_X, PIC_Y, PIC_W, PIC_H, alpha);
         char when[64], line[128];
         strftime(when, sizeof when, "%d %b %Y, %H:%M", localtime(&latest.saved_at));
-        snprintf(line, sizeof line, "Save state %d  \xC2\xB7  %s", latest_slot, when);
+        if (latest_slot == AUTOSAVE_SLOT) snprintf(line, sizeof line, "Autosave  \xC2\xB7  %s", when);
+        else snprintf(line, sizeof line, "Save state %d  \xC2\xB7  %s", latest_slot, when);
         ui_draw_text(line, FONT, 16, 400, 0, PIC_X, TEXT_Y, C_TEXT, C_TEXT, alpha);
-        draw_wrapped("Picks up where you left off. F2 in the game saves a new state; this always offers the newest.", PIC_X, TEXT_Y + 28, PIC_W, 15.5f, C_DIM, alpha);
+        draw_wrapped("Picks up where you left off. F2 in the game saves a new state, and the game autosaves as the story moves on; this always offers the newest.", PIC_X, TEXT_Y + 28, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
     if (it && it->kind == ITEM_SLOT) { draw_slot_picture(alpha); return; }

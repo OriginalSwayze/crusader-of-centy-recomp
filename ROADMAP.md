@@ -28,6 +28,7 @@ Status markers:
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
+| Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
 (bigger hits). The Japanese and Korean addresses are found automatically
@@ -89,7 +90,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Difficulty: Original, Easy, Hard, Very hard | Done: PLAY > Difficulty (damage taken 100 / 50 / 150 / 200%) |
 | Infinite health | Done: PLAY > Infinite health |
 | Enemy / boss health bars, damage numbers | Done, confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
-| Autosave at progression points | Map: needs the story-progress flags; until then save states |
+| Autosave at progression points | Done: GAMEPLAY > Autosave (on by default): a save state in its own slot two seconds after a story flag is newly set; Paused > Load autosave, and the launcher's Continue offers it when it is the newest |
 | Movement speed option | Map: the player's movement code |
 | Gameplay statistics, playtime, death counter, defeats | Done: GAME > Stats (`stats.ini`), PLAY > Play timer |
 | Improved weapon switching | Hard: the game's inventory code |
@@ -116,7 +117,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Find the story flags (autosave, New Game+); confirm boss fights show bars.
+1. Confirm boss fights show bars; name the story flags (which flag is which event) for New Game+ and a progress page.
 2. Smooth motion (needs which sprites belong to which object).
 4. World effects that need the camera: vegetation, shadows, day/night.
 5. Companion pages, then the larger modes (New Game+, Boss Rush).

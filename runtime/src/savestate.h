@@ -15,6 +15,7 @@ typedef struct {
 
 void savestate_init(const char *base_dir);          /* files go in <base_dir>states/ */
 /* Saves the machine to `slot`, with a thumbnail of the frame fb (w x h, pitch in pixels). */
+#define AUTOSAVE_SLOT 10                /* the autosave's own slot, after the player's 1-9 */
 bool savestate_save(int slot, const uint32_t *fb, int w, int h, int pitch);
 bool savestate_load(int slot);
 bool savestate_info(int slot, SlotInfo *info);      /* false if the slot is empty */

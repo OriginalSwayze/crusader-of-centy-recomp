@@ -25,6 +25,7 @@ interpreter. It shares its recompiler and runtime with
 | Internal resolution 2-16x, scalers, display filters, lighting, HDR, sharpening, texture packs | done |
 | Hit effects: sparks from hits, bursts from defeated enemies | done |
 | Photo mode (F9): freeze, hide the HUD, save a full-resolution PNG | done |
+| Autosave when the story moves on | done |
 | Slowdown fix (68000 at 150-300%), sprite flicker fix, fast-forward | done |
 | Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
 | Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
