@@ -59,6 +59,7 @@ void settings_load(const char *path) {
         else if (!strcmp(k, "language")) snprintf(settings.language, sizeof settings.language, "%s", v);
         else if (!strncmp(k, "rom_", 4) && version_index(k + 4) >= 0)
             snprintf(settings.rom_paths[version_index(k + 4)], sizeof settings.rom_paths[0], "%s", v);
+        else if (!strcmp(k, "widescreen")) settings.widescreen = atoi(v);
         else if (!strcmp(k, "fullscreen")) settings.fullscreen = parse_bool(v);
         else if (!strcmp(k, "window_scale")) settings.window_scale = atoi(v);
         else if (!strcmp(k, "integer_scale")) settings.integer_scale = parse_bool(v);
@@ -96,6 +97,7 @@ void settings_load(const char *path) {
         else input_ini_load(k, v);     /* key_* and pad_*; anything else (an older file's) is dropped */
     }
     fclose(f);
+    settings.widescreen = clampi(settings.widescreen, 0, 2, 0);
     settings.window_scale = clampi(settings.window_scale, 1, 10, 4);
     if (settings.internal_scale < 1 || settings.internal_scale > 6 || settings.internal_scale == 5) settings.internal_scale = 1;
     settings.scaler = clampi(settings.scaler, 0, 2, 0);
@@ -148,6 +150,7 @@ void settings_save(const char *path) {
     for (int i = 0; i < SETTINGS_VERSIONS; i++)
         if (settings.rom_paths[i][0]) fprintf(f, "rom_%s=%s\n", version_ids[i], settings.rom_paths[i]);
     fprintf(f, "\n# Display\n");
+    fprintf(f, "widescreen=%d\n", settings.widescreen);
     fprintf(f, "fullscreen=%d\n", settings.fullscreen);
     fprintf(f, "window_scale=%d\n", settings.window_scale);
     fprintf(f, "integer_scale=%d\n", settings.integer_scale);
@@ -202,6 +205,7 @@ void settings_option_text(int id, char *out, size_t n) {
         if (settings.fullscreen) snprintf(out, n, "Fullscreen");
         else snprintf(out, n, "Window %d\xC3\x97", settings.window_scale);
         break;
+    case OPT_WIDESCREEN: snprintf(out, n, "%s", settings.widescreen == 2 ? "16:9" : settings.widescreen ? "16:10" : "Off"); break;
     case OPT_INTEGER:    snprintf(out, n, "%s", on_off(settings.integer_scale)); break;
     case OPT_INTERNAL:
         if (settings.internal_scale <= 1) snprintf(out, n, "Native");
@@ -279,6 +283,7 @@ void settings_option_change(int id, int dir) {
         if (cur) settings.window_scale = cur + 1;
         break;
     }
+    case OPT_WIDESCREEN: settings.widescreen = settings_cycle(settings.widescreen, 3, dir); break;
     case OPT_INTEGER:    settings.integer_scale = !settings.integer_scale; break;
     case OPT_INTERNAL: {                /* Native, 2x, 3x, 4x, 6x */
         static const int scales[5] = { 1, 2, 3, 4, 6 };
@@ -347,10 +352,18 @@ void settings_option_change(int id, int dir) {
     }
 }
 
+/* The game's pixels are a little wide (320 x 224 fills a 4:3 screen), so the shape is turned
+ * into a pixel count with that: 16:10 is 384 pixels, 16:9 about 427 (here 424). */
+int settings_extra_width(void) {
+    static const int extra[3] = { 0, 32, 52 };
+    return extra[settings.widescreen < 0 || settings.widescreen > 2 ? 0 : settings.widescreen];
+}
+
 /* ---- Presets -------------------------------------------------------------------------- */
 /* Everything as the cartridge was: native resolution, no effects, the original speed,
  * sprite limit and difficulty. Controls, sound, saves and the language stay as they are. */
 void settings_preset_original(void) {
+    settings.widescreen = 0;
     settings.internal_scale = 1;
     settings.scaler = 0;
     settings.filter = FILTER_OFF;

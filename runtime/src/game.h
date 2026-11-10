@@ -15,6 +15,7 @@ typedef struct GameVersion {
     const char *title;                          /* as sold, for the launcher's case */
     int region;
     const RecompEntry *const *tables;           /* the recompiled code, NULL-terminated */
+    uint32_t row_draw;                          /* the scroll's row draw (widescreen.c replaces it) */
 } GameVersion;
 
 /* config/versions.json order: us, jp, kr. */

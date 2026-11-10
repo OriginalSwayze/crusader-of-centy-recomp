@@ -13,6 +13,7 @@ typedef struct {
     char rom_paths[SETTINGS_VERSIONS][1024];   /* each version's ROM, "" if not chosen */
     char language[8];                   /* the version played (its id: us, jp, kr) */
     /* Display */
+    int  widescreen;                    /* 0 off (4:3), 1 16:10, 2 16:9: the scrolling maps shown wider (widescreen.c) */
     bool fullscreen;
     int  window_scale;
     bool integer_scale;
@@ -60,7 +61,7 @@ void settings_save(const char *path);
 
 /* Options the launcher and the in-game menu show: a value label, and stepping it. */
 enum {
-    OPT_WINDOW_ALL,                     /* fullscreen or a window size, in one option */
+    OPT_WIDESCREEN, OPT_WINDOW_ALL,     /* fullscreen or a window size, in one option */
     OPT_INTEGER, OPT_INTERNAL, OPT_SCALER, OPT_FILTER, OPT_SHARPEN, OPT_FLICKER,
     OPT_LIGHTING, OPT_HDR, OPT_WATER, OPT_TEXPACK, OPT_DUMP,
     OPT_DIFFICULTY, OPT_CHEAT_HEALTH, OPT_COMBAT, OPT_RUMBLE, OPT_TIMER, OPT_FAST,
@@ -89,6 +90,9 @@ int  settings_cycle(int v, int count, int dir);     /* (v + dir) wrapped into 0.
 bool settings_use_rom(const char *path);
 /* How many languages there are to choose from: versions this build has, with a ROM. */
 int  settings_language_count(void);
+
+/* Pixels of the world added on each side for the widescreen setting (0 when off). */
+int  settings_extra_width(void);
 
 /* The folder next to the executable (texture packs are listed under it). */
 void settings_set_base(const char *dir);

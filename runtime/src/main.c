@@ -163,7 +163,7 @@ static bool switch_version(void) {
 }
 
 static void apply_settings(void) {
-    vdp_opts.extra_width = 0;           /* widescreen needs the game's map code patched: not for this game yet */
+    widescreen_set(settings_extra_width());
     vdp_opts.no_sprite_limit = settings.no_sprite_limit;
     vdp_opts.hd_capture = true;         /* the layers are also what the menu's previews draw from */
     machine_opts.overclock = settings.overclock;
@@ -640,6 +640,11 @@ int main(int argc, char **argv) {
             vdp_trace_hi = (uint32_t)strtoul(argv[++i], NULL, 16);
         }
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
+        else if (!strcmp(argv[i], "--trace-ram") && i + 2 < argc) {
+            extern uint32_t ram_trace_lo, ram_trace_hi;
+            ram_trace_lo = (uint32_t)strtoul(argv[++i], NULL, 16);
+            ram_trace_hi = (uint32_t)strtoul(argv[++i], NULL, 16);
+        }
         else if (!strcmp(argv[i], "--state-check") && i + 2 < argc) { check_from = atoi(argv[++i]); check_to = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--rewind-check") && i + 1 < argc) rewind_check = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc) {
@@ -707,6 +712,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--difficulty") && i + 1 < argc) { settings.difficulty = atoi(argv[++i]) & 3; test_overrides = true; }   /* 0-3 */
         else if (!strcmp(argv[i], "--infinite-health")) { settings.cheat_health = true; test_overrides = true; }
         else if (!strcmp(argv[i], "--combat") && i + 1 < argc) { settings.combat_info = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
+        else if (!strcmp(argv[i], "--widescreen") && i + 1 < argc) { settings.widescreen = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0 off, 1 16:10, 2 16:9 */
         else if (!strcmp(argv[i], "--water") && i + 1 < argc) { settings.water = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--combat-log")) { extern bool combat_log; combat_log = true; }
         else if (!strcmp(argv[i], "--play-timer") && i + 1 < argc) { settings.play_timer = atoi(argv[++i]) != 0; test_overrides = true; }

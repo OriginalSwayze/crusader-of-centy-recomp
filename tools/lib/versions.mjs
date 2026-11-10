@@ -39,7 +39,7 @@ function uniqueHit(target, pat, at) {
 }
 
 // Map of USA address -> address in `target`, or throws naming the ones not found.
-export function mapAddresses(usa, target, list = USA_ADDRESSES) {
+export function mapAddresses(usa, target, list = USA_ADDRESSES, allowMissing = false) {
   if (usa.equals(target)) return new Map(list.map((a) => [a, a]));
   const found = new Map();
   for (const a of list) {
@@ -67,6 +67,7 @@ export function mapAddresses(usa, target, list = USA_ADDRESSES) {
     }
   }
   const missing = list.filter((a) => !found.has(a) || !ok(a, found.get(a)));
+  if (allowMissing) { for (const a of missing) found.delete(a); found.missing = missing; return found; }
   if (missing.length) throw new Error(`not found: ${missing.map((a) => a.toString(16).toUpperCase().padStart(6, '0')).join(', ')}`);
   return found;
 }

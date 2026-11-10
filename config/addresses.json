@@ -1,3 +1,4 @@
 {
-  "comment": "Code addresses in Crusader of Centy (USA) that the runtime hooks (machine_override); tools/lib/versions.mjs finds each one in the other versions. Code-level patches are in config/patches.json. None yet."
+  "comment": "Code addresses in Crusader of Centy (USA) that the runtime hooks (machine_override); tools/lib/versions.mjs finds each one in the other versions. Code-level patches are in config/patches.json. row_draw: the scroll's row draw ($62DE), replaced by widescreen.c's wider one while widescreen is on.",
+  "row_draw": "0062DE"
 }

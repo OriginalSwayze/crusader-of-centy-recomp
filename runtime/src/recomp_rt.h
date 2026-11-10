@@ -58,6 +58,29 @@ static inline void wr16(uint32_t a, uint32_t v) {
 }
 static inline void wr32(uint32_t a, uint32_t v) { wr16(a, v >> 16); wr16(a + 2, v); }
 
+/* Widescreen (widescreen.c, config/patches.json): ws_extra pixels of the world shown on each
+ * side of the original 320 (0 = the original), ws_cols the map's 16-pixel block columns the
+ * game draws beyond each side for them. With both 0 every patch is the original instruction.
+ * The camera's limits ($FFA4FA-$FFA4FC, its left edge) come in by ws_extra, so the wider view
+ * stops at the map's edges; a map too narrow for that keeps the camera in its middle. */
+extern int ws_extra, ws_cols;
+static inline uint32_t ws_cam_lo(void) {
+    int lo = (int16_t)rd16(0xFFA4FA), hi = (int16_t)rd16(0xFFA4FC);
+    if (!ws_extra) return (uint32_t)lo & 0xFFFFu;
+    return (uint32_t)(hi - lo < 2 * ws_extra ? (lo + hi) / 2 : lo + ws_extra) & 0xFFFFu;
+}
+static inline uint32_t ws_cam_hi(void) {
+    int lo = (int16_t)rd16(0xFFA4FA), hi = (int16_t)rd16(0xFFA4FC);
+    if (!ws_extra) return (uint32_t)hi & 0xFFFFu;
+    return (uint32_t)(hi - lo < 2 * ws_extra ? (lo + hi) / 2 : hi - ws_extra) & 0xFFFFu;
+}
+/* The column the scroll draws (its offset from the camera's column: 0 moving left, 22 moving
+ * right), moved out by ws_cols. */
+static inline int ws_col(uint32_t d6) {
+    int d = (int16_t)d6;
+    return !ws_cols ? d : d == 0 ? -ws_cols : d + ws_cols;
+}
+
 static inline uint32_t sx8(uint32_t v)  { return (uint32_t)(int32_t)(int8_t)v; }
 static inline uint32_t sx16(uint32_t v) { return (uint32_t)(int32_t)(int16_t)v; }
 

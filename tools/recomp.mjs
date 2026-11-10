@@ -27,7 +27,7 @@ const REGION = { us: 'REGION_US', eu: 'REGION_EU', jp: 'REGION_JP' };
 
 const built = new Set();
 for (const { version, rom } of loadRoms()) {
-  const { patches } = configFor(version.id);
+  const { addresses, patches } = configFor(version.id);
   usePatches(patches);
   const t = trace(rom, loadExtraEntries(version.id));
   const parts = t.blocks.flatMap((b) => genBlock(rom, b));
@@ -50,6 +50,7 @@ for (const { version, rom } of loadRoms()) {
     `    .id = "${id}", .name = ${cstr(version.name)}, .language = ${cstr(version.language)},\n` +
     `    .title = ${cstr(version.title)},\n` +
     `    .sha1 = "${version.sha1}", .region = ${REGION[version.region]}, .tables = tables,\n` +
+    `    .row_draw = 0x${addresses.row_draw},\n` +
     `};\n`);
   built.add(id);
   console.log(`${version.name}: recompiled ${parts.length} block functions from ${t.blocks.length} blocks`);

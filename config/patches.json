@@ -6,9 +6,258 @@
       [
         "{ uint32_t v = player_health_change(D(0) & 0xFFFFu); wr16(0xFFFE62, addw(v, rd16(0xFFFE62))); }"
       ]
+    ],
+    "00781A": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "007822": [
+      "cmpi.w\t#$180,d0",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "00C736": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "00C73E": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "00C952": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "00C95A": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "01D6F4": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "01D6FC": [
+      "cmpi.w\t#$180,d0",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "01F210": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "01F218": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "01F2B0": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "01F2B8": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "01F510": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "01F518": [
+      "cmpi.w\t#$160,d2",
+      [
+        "cmpw((0x160u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "01F884": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "01F88C": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "01FA3C": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "01FA44": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "020582": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "02058A": [
+      "cmpi.w\t#$160,d0",
+      [
+        "cmpw((0x160u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "0212C0": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "0212C8": [
+      "cmpi.w\t#$180,d0",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "0216EC": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "0216F4": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "021770": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "021778": [
+      "cmpi.w\t#$1C0,d0",
+      [
+        "cmpw((0x1C0u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "021D22": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "021D2A": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "021E1E": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "021E26": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "022C34": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "022C3C": [
+      "cmpi.w\t#$180,d0",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "022E3E": [
+      "sub.w\t($FFFFA4F2).w,d2",
+      [
+        "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+      ]
+    ],
+    "022E46": [
+      "cmpi.w\t#$180,d2",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+      ]
+    ],
+    "0250C8": [
+      "sub.w\t($FFFFA4F2).w,d0",
+      [
+        "setw(&D(0), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu));"
+      ]
+    ],
+    "0250D0": [
+      "cmpi.w\t#$180,d0",
+      [
+        "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+      ]
+    ],
+    "01892C": [
+      "cmp.w\t($FFFFA4FA).w,d2",
+      [
+        "cmpw(ws_cam_lo(), D(2) & 0xFFFFu);"
+      ]
+    ],
+    "018936": [
+      "sub.w\t($FFFFA4FA).w,d6",
+      [
+        "setw(&D(6), subw(ws_cam_lo(), D(6) & 0xFFFFu));"
+      ]
+    ],
+    "01894A": [
+      "cmp.w\t($FFFFA4FC).w,d2",
+      [
+        "cmpw(ws_cam_hi(), D(2) & 0xFFFFu);"
+      ]
+    ],
+    "018954": [
+      "sub.w\t($FFFFA4FC).w,d6",
+      [
+        "setw(&D(6), subw(ws_cam_hi(), D(6) & 0xFFFFu));"
+      ]
+    ],
+    "006268": [
+      "add.w\td6,d0",
+      [
+        "{ int s = ws_col(D(6)); setw(&D(0), addw((uint32_t)s & 0xFFFFu, D(0) & 0xFFFFu)); setw(&D(6), (uint32_t)(s < 0 ? s + 32 : s)); }"
+      ]
     ]
   },
   "notes": {
-    "006B60": "The player's health ($FFFE62, max $FFFE60, in apples) changes by d0 here: negative for a hit, positive when healed. player_health_change() scales the hits by the difficulty and drops them with infinite health; 100% keeps the original."
+    "006B60": "The player's health ($FFFE62, max $FFFE60, in apples) changes by d0 here: negative for a hit, positive when healed. player_health_change() scales the hits by the difficulty and drops them with infinite health; 100% keeps the original.",
+    "006268": "Widescreen: the scroll's column draw ($624A) takes its column from the camera's plus d6 (0 moving left, 22 moving right); ws_col() moves it out by ws_cols blocks. A column left of the camera's is the same plane column as one 32 to the right, so d6 keeps the game's own wrap working.",
+    "01892C": "Widescreen: the field camera ($188D2) clamps its left edge to [$FFA4FA, $FFA4FC]; these four instructions use ws_cam_lo()/ws_cam_hi(), the limits brought in by the extra width.",
+    "00781A": "Widescreen: 18 places check whether an object is near the screen (x + bias - camera against a limit) before updating or drawing it. Each subtracts camera - ws_extra and compares against limit + 2 ws_extra, so objects in the side areas live and show."
   }
 }

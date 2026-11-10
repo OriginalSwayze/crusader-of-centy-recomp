@@ -41,8 +41,8 @@ static const Page pages[PAGES] = {
         { ITEM_PAGE, "Display", PAGE_DISPLAY }, { ITEM_PAGE, "Effects", PAGE_EFFECTS }, { ITEM_PAGE, "Gameplay", PAGE_GAMEPLAY },
         { ITEM_PAGE, "Sound", PAGE_SOUND }, { ITEM_ACTION, "Controls", ACT_CONTROLS }, { ITEM_PAGE, "System", PAGE_SYSTEM },
         { ITEM_ACTION, "Original experience", ACT_PRESET_ORIGINAL }, { ITEM_ACTION, "Enhanced experience", ACT_PRESET_ENHANCED } } },
-    [PAGE_DISPLAY] = { "Display", 7, {
-        { ITEM_OPTION, "Window", OPT_WINDOW_ALL }, { ITEM_OPTION, "Integer scaling", OPT_INTEGER },
+    [PAGE_DISPLAY] = { "Display", 8, {
+        { ITEM_OPTION, "Widescreen", OPT_WIDESCREEN }, { ITEM_OPTION, "Window", OPT_WINDOW_ALL }, { ITEM_OPTION, "Integer scaling", OPT_INTEGER },
         { ITEM_OPTION, "Internal resolution", OPT_INTERNAL }, { ITEM_OPTION, "Scaler", OPT_SCALER },
         { ITEM_OPTION, "Filter", OPT_FILTER }, { ITEM_OPTION, "Sharpening", OPT_SHARPEN },
         { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER } } },
@@ -88,6 +88,7 @@ static const char *about(const Item *it) {
         }
     if (it->kind == ITEM_SLOT) return NULL;
     switch (it->id) {
+    case OPT_WIDESCREEN: return "Shows more of the world at the sides while you explore, drawn by the game's own map code. Title, story and menu screens keep the original 4:3 picture with black sides.";
     case OPT_WINDOW_ALL: return "Fullscreen, or a window of this many times the game's size. F11 switches at any time.";
     case OPT_INTEGER: return "Scales by whole numbers only, so every game pixel is the same size.";
     case OPT_INTERNAL: return "Draws each layer at a higher resolution, rounding the edges of the pixel art. Native is the original look; 6x is for 1440p and 4K screens and needs a fast CPU.";

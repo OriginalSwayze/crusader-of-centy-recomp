@@ -134,10 +134,19 @@ uint16_t bus_read16(uint32_t a) {
     return (uint16_t)(bus_read8(a) << 8 | bus_read8(a + 1));
 }
 
+/* --trace-ram LO HI (debugging, with --interpret): print the 68000 PC of every write to
+ * work RAM between $FFLO and $FFHI. */
+uint32_t ram_trace_lo = 1, ram_trace_hi = 0;
+static void trace_ram(uint32_t a, uint32_t v, int size) {
+    if ((a & 0xFFFF) < ram_trace_lo || (a & 0xFFFF) > ram_trace_hi) return;
+    printf("ram write $FF%04X = %0*X (%d bytes) at pc $%06X\n", a & 0xFFFF, size * 2, v, size,
+           m68k_get_reg(NULL, M68K_REG_PPC) & 0xFFFFFF);   /* the instruction writing */
+}
+
 /* ---- Writes ----------------------------------------------------------------- */
 void bus_write8(uint32_t a, uint8_t v) {
     a &= 0xFFFFFF;
-    if (a >= 0xE00000) { bus.ram[a & 0xFFFF] = v; return; }
+    if (a >= 0xE00000) { if (ram_trace_lo <= ram_trace_hi) trace_ram(a, v, 1); bus.ram[a & 0xFFFF] = v; return; }
     if (in_sram(a)) {
         if (a & 1) { bus.sram[(a - 0x200000) >> 1] = v; bus.sram_dirty = true; }
         return;
@@ -158,6 +167,7 @@ void bus_write8(uint32_t a, uint8_t v) {
 void bus_write16(uint32_t a, uint16_t v) {
     a &= 0xFFFFFE;
     if (a >= 0xE00000) {
+        if (ram_trace_lo <= ram_trace_hi) trace_ram(a, v, 2);
         bus.ram[a & 0xFFFF] = (uint8_t)(v >> 8);
         bus.ram[(a & 0xFFFF) + 1] = (uint8_t)v;
         return;

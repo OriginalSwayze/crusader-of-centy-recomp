@@ -22,7 +22,8 @@ Status markers:
 | Player X / Y | `$FFAC12` / `$FFAC16` (object record at `$FFAC00`, 0x54 bytes per object) | camera, effects, map, health bars (next) |
 | Health / max health (apples) | `$FFFE62` / `$FFFE60` | infinite health, HUD |
 | Hit / heal routine | `$6B36`: adds `$FFB100` to the health at `$6B60` | difficulty, infinite health (`config/patches.json`), tested on a real hit |
-| Camera X / Y | `$FFA4F2` / `$FFA4F6` (world pixels, picture's top left) | combat info; next: world effects, map |
+| Camera X / Y | `$FFA4F2` / `$FFA4F6` (world pixels, picture's top left); limits `$FFA4FA`-`$FFA500`, held while `$FFA4DE` is set | combat info, map, widescreen |
+| Map scrolling | `$188D2` moves the camera; `$624A` draws a column and `$62DE` a row of 16x16 blocks from the map at `$FF2C04` (blocks' tiles at `$FF0000`) | widescreen |
 | Object list | `$FFC800`, 128 records of 0x40: +0 type, +2 health (sixteenths), +4 X, +8 Y (16.16, middle), +20 hit timer, +24 damage waiting | combat info, stats |
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
@@ -52,8 +53,8 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | CRT, scanlines, screen curvature | Done: Filter (Scanlines, CRT with curvature, LCD) |
 | Chromatic aberration, film grain | Build: two small passes in `hd.c` |
 | Unlocked frame rate | Engine: frames draw at the display's rate; moving sprites between game ticks (smooth motion) needs the sprite-to-object link: Map |
-| Widescreen camera | Map, Hard: the game's map streaming and camera clamp must be patched, as Beyond Oasis Recomp does |
-| Ultrawide | follows widescreen |
+| Widescreen camera | Done: 16:10 and 16:9 on the scrolling maps; the field camera ($188D2) keeps the wider view inside the map, its column and row draws reach the sides, 18 near-the-screen checks widened (one is not found in the Japanese and Korean code, `$22E3E`) |
+| Ultrawide | Hard: the plane holds 32 blocks (512 pixels), so the view can grow by 64 pixels a side at most (about 2:1 would need 80) |
 | Original graphics mode, one-click compare | Done: Original / Enhanced experience presets; the menu's preview card shows before/after |
 
 ## Stage 3: Visual enhancements
@@ -117,6 +118,5 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 1. Confirm combat info in a real fight; find the story flags.
 2. Smooth motion (needs which sprites belong to which object).
-3. Widescreen camera (patch the map streaming and camera clamp).
 4. World effects that need the camera: vegetation, shadows, day/night.
 5. Companion pages, photo mode, then the larger modes (New Game+, Boss Rush).

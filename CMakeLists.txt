@@ -92,6 +92,7 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/savestate.c
   runtime/src/cheats.c
   runtime/src/motion.c
+  runtime/src/widescreen.c
   runtime/src/combat.c
   runtime/src/automap.c
   runtime/src/hd.c

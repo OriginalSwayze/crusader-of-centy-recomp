@@ -281,6 +281,7 @@ static void run(int cycles) {
 
 void machine_run_frame(uint32_t *fb, int pitch) {
     sound_out_count = 0;
+    widescreen_frame();
     int height = vdp_screen_height();
     int lines = game_is_pal() ? LINES_PAL : LINES_NTSC;
     for (int line = 0; line < lines; line++) {

@@ -31,7 +31,8 @@ interpreter. It shares its recompiler and runtime with
 | Auto-map (GAME > Map): each map fills in as you explore, saved in `automap.bin` | done (`runtime/src/automap.c`) |
 | Launcher and pause menu (`runtime/src/menu.c`): clean and minimal, one column of large text with the title screen or the paused game large beside it; Settings in pages (Display, Effects, Gameplay, Sound, Controls, System) | done |
 | Sound levels: the mix brought down to about -19 dBFS with no clipping (it clipped at the Beyond Oasis gain); the volume setting follows the ear (squared: 50% is about -12 dB, 10% about -40 dB) | done |
-| Widescreen, smooth motion | not yet: these hook into the game's own code and RAM, which is not mapped for Crusader of Centy yet (`runtime/src/unported.c`) |
+| Widescreen 16:10 and 16:9 (Settings > Display; `runtime/src/widescreen.c`, `config/patches.json`): the scrolling maps drawn wider by the game's own map code, with the camera stopping at the map edges and objects living in the side areas; other screens keep 4:3 with black sides | done; off is exactly the original |
+| Smooth motion | not yet: needs which sprite belongs to which object (`runtime/src/motion.c`); the game updates 60 times a second, so it would only help above 60 Hz |
 
 ### Tested
 
@@ -127,7 +128,7 @@ options: `--press`, `--shot F.png`, `--shots EVERY DIR`, `--watch ADDR,...`,
 `--bench N`, `--pc-profile N`, `--wav F`, `--overclock PERCENT`, `--save-to N`, `--load N`,
 `--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`, `--difficulty N`,
 `--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees),
-`--water 0|1`, `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
+`--water 0|1`, `--widescreen 0|1|2`, `--trace-ram LO HI` (with `--interpret`: the PC of every write to $FFLO-$FFHI), `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
 
 ## How it fits together
 

@@ -161,4 +161,8 @@ void rewind_restore_head(void);
 int  rewind_frames(void);
 size_t rewind_bytes(void);
 
+/* ---- Widescreen (widescreen.c) ----------------------------------------------------- */
+void widescreen_set(int extra);         /* pixels each side, 0 = the original */
+void widescreen_frame(void);            /* before each frame: which screens are wide */
+
 #endif
