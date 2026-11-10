@@ -522,6 +522,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--load") && i + 1 < argc) load_from = atoi(argv[++i]);   /* load a slot first */
         else if (!strcmp(argv[i], "--switch-language") && i + 2 < argc) { switch_at = atoi(argv[++i]); switch_to = argv[++i]; }
         else if (!strcmp(argv[i], "--poke") && i + 1 < argc) cheats_add_codes(argv[++i]);   /* FFxxxx:VV[VV],... */
+        else if (!strcmp(argv[i], "--difficulty") && i + 1 < argc) { settings.difficulty = atoi(argv[++i]) & 3; test_overrides = true; }   /* 0-3 */
+        else if (!strcmp(argv[i], "--infinite-health")) { settings.cheat_health = true; test_overrides = true; }
         else if (!strcmp(argv[i], "--menu-shot") && i + 3 < argc) {
             /* --menu-shot F.png W H: open the in-game menu over the last frame and render it. */
             menu_shot = argv[++i];

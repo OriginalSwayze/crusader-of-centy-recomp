@@ -1,6 +1,10 @@
-/* Cheats: RAM values held every frame, like a Pro Action Replay. The codes come from
- * --poke on the command line and cheat_codes in settings.ini. Built-in cheats need the
- * game's RAM mapped first (its health, items and so on); none are for this game yet. */
+/* Cheats and difficulty: RAM values held every frame, like a Pro Action Replay (the codes
+ * come from --poke on the command line and cheat_codes in settings.ini), and the damage the
+ * player takes (config/patches.json, player_health_change() in recomp_rt.h).
+ *
+ * RAM used (from the disassembly):
+ *   $FFFE60  the player's maximum health, in apples (8 at the start)
+ *   $FFFE62  the player's health; the hit/heal routine at $6B36 adds $FFB100 to it at $6B60 */
 #include "cheats.h"
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +17,16 @@ static int code_count;
 static Code user_codes[64];             /* settings.cheat_codes */
 static int user_count;
 static char user_spec[sizeof settings.cheat_codes];
+
+int patch_damage = 100;
+static int damage_carry;                /* hundredths of a point of damage owed by earlier hits */
+
+int scale_damage(int damage) {
+    if (patch_damage <= 0) return 0;
+    int total = damage * patch_damage + damage_carry;
+    damage_carry = total % 100;
+    return total / 100;
+}
 
 static int parse(const char *spec, Code *out, int *count, int cap) {
     int added = 0;
@@ -42,7 +56,18 @@ static void apply(const Code *c, int n) {
     }
 }
 
+/* Difficulty: the percent of every hit the player takes. */
+static const int difficulty_damage[4] = { 100, 50, 150, 200 };
+
 void cheats_frame(void) {
+    int d = settings.difficulty >= 0 && settings.difficulty < 4 ? settings.difficulty : 0;
+    patch_damage = settings.cheat_health ? 0 : difficulty_damage[d];
+    if (patch_damage == 100) damage_carry = 0;
+    if (settings.cheat_health) {
+        uint16_t max = (uint16_t)(bus.ram[0xFE60] << 8 | bus.ram[0xFE61]);
+        uint16_t now = (uint16_t)(bus.ram[0xFE62] << 8 | bus.ram[0xFE63]);
+        if (max > 0 && max <= 0x40 && now < max) { bus.ram[0xFE62] = (uint8_t)(max >> 8); bus.ram[0xFE63] = (uint8_t)max; }
+    }
     if (strcmp(user_spec, settings.cheat_codes)) {
         memcpy(user_spec, settings.cheat_codes, sizeof user_spec);
         user_count = 0;

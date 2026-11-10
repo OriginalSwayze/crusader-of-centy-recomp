@@ -23,6 +23,15 @@ extern int recomp_charged;
 typedef uint32_t (*RecompBlock)(uint32_t pc);
 typedef struct { uint32_t pc; RecompBlock fn; } RecompEntry;
 
+/* Patched instructions (config/patches.json). Their defaults keep the original behaviour. */
+extern int patch_damage;                /* percent of each hit the player takes: 100 original, 0 none */
+int scale_damage(int damage);           /* cheats.c: scaled, with the fraction carried to the next hit */
+/* A change to the player's health (16 bits, negative for a hit), as the difficulty has it. */
+static inline uint32_t player_health_change(uint32_t v) {
+    if (patch_damage == 100 || !(v & 0x8000)) return v;
+    return (uint32_t)(-scale_damage(-(int)(int16_t)v)) & 0xFFFFu;
+}
+
 /* Replaces the code at pc with hand-written C (machine.c); NULL restores the generated code. */
 void machine_override(uint32_t pc, RecompBlock fn);
 

@@ -3,6 +3,7 @@ local.json
 rom/
 *.md
 !README.md
+!ROADMAP.md
 !docs/*.md
 *.bin
 *.gen

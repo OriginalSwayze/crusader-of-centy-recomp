@@ -3,13 +3,33 @@
   "jp": {
     "addresses": {},
     "patches": {
-      "replace": {}
+      "replace": {
+        "006D74": [
+          "add.w\td0,($FFFFFE62).w",
+          [
+            "{ uint32_t v = player_health_change(D(0) & 0xFFFFu); wr16(0xFFFE62, addw(v, rd16(0xFFFE62))); }"
+          ]
+        ]
+      },
+      "notes": {
+        "006D74": "The player's health ($FFFE62, max $FFFE60, in apples) changes by d0 here: negative for a hit, positive when healed. player_health_change() scales the hits by the difficulty and drops them with infinite health; 100% keeps the original."
+      }
     }
   },
   "kr": {
     "addresses": {},
     "patches": {
-      "replace": {}
+      "replace": {
+        "006D3E": [
+          "add.w\td0,($FFFFFE62).w",
+          [
+            "{ uint32_t v = player_health_change(D(0) & 0xFFFFu); wr16(0xFFFE62, addw(v, rd16(0xFFFE62))); }"
+          ]
+        ]
+      },
+      "notes": {
+        "006D3E": "The player's health ($FFFE62, max $FFFE60, in apples) changes by d0 here: negative for a hit, positive when healed. player_health_change() scales the hits by the difficulty and drops them with infinite health; 100% keeps the original."
+      }
     }
   }
 }

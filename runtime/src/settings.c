@@ -110,6 +110,7 @@ void settings_load(const char *path) {
         else if (input_ini_load(k, v)) {}
         else if (outfit_ini_load(k, v)) {}
         else if (!strcmp(k, "cheat_health")) settings.cheat_health = parse_bool(v);
+        else if (!strcmp(k, "difficulty")) settings.difficulty = atoi(v);
         else if (!strcmp(k, "cheat_spirit")) settings.cheat_spirit = parse_bool(v);
         else if (!strcmp(k, "cheat_weapons")) settings.cheat_weapons = parse_bool(v);
         else if (!strcmp(k, "cheat_attack")) settings.cheat_attack = atoi(v);
@@ -131,6 +132,7 @@ void settings_load(const char *path) {
     if (settings.hdr < 0 || settings.hdr > 2) settings.hdr = 0;
     if (settings.audio < 0 || settings.audio > 2) settings.audio = 0;
     if (settings.cheat_attack < 0 || settings.cheat_attack > 3) settings.cheat_attack = 0;
+    if (settings.difficulty < 0 || settings.difficulty > 3) settings.difficulty = 0;
     if (settings.cheat_speed < 0 || settings.cheat_speed > 2) settings.cheat_speed = 0;
     if (settings.randomizer < 0 || settings.randomizer > 2) settings.randomizer = 0;
     if (settings.combat_info < 0 || settings.combat_info > 2) settings.combat_info = 0;
@@ -212,6 +214,7 @@ void settings_save(const char *path) {
     fprintf(f, "audio=%d\n", settings.audio);
     fprintf(f, "ost_track=%d\n", settings.ost_track);
     fprintf(f, "cheat_health=%d\n", settings.cheat_health);
+    fprintf(f, "difficulty=%d\n", settings.difficulty);
     fprintf(f, "cheat_spirit=%d\n", settings.cheat_spirit);
     fprintf(f, "cheat_weapons=%d\n", settings.cheat_weapons);
     fprintf(f, "cheat_attack=%d\n", settings.cheat_attack);
@@ -309,6 +312,11 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_REWIND_MB:  snprintf(out, n, "%d MB", settings.rewind_mb); break;
     case OPT_LAUNCHER:   snprintf(out, n, "%s", settings.show_launcher ? "On" : "Off"); break;
     case OPT_CHEAT_HEALTH:  snprintf(out, n, "%s", settings.cheat_health ? "On" : "Off"); break;
+    case OPT_DIFFICULTY: {
+        static const char *names[4] = { "Original", "Easy", "Hard", "Very hard" };
+        snprintf(out, n, "%s", names[settings.difficulty & 3]);
+        break;
+    }
     case OPT_CHEAT_SPIRIT:  snprintf(out, n, "%s", settings.cheat_spirit ? "On" : "Off"); break;
     case OPT_CHEAT_WEAPONS: snprintf(out, n, "%s", settings.cheat_weapons ? "On" : "Off"); break;
     case OPT_CHEAT_ATTACK:  snprintf(out, n, "%s", attack_names[settings.cheat_attack & 3]); break;
@@ -437,6 +445,7 @@ void settings_option_change(int id, int dir) {
     }
     case OPT_AUDIO:    settings.audio = settings_cycle(settings.audio, 3, dir); break;
     case OPT_CHEAT_HEALTH:  settings.cheat_health = !settings.cheat_health; break;
+    case OPT_DIFFICULTY:    settings.difficulty = settings_cycle(settings.difficulty, 4, dir); break;
     case OPT_CHEAT_SPIRIT:  settings.cheat_spirit = !settings.cheat_spirit; break;
     case OPT_CHEAT_WEAPONS: settings.cheat_weapons = !settings.cheat_weapons; break;
     case OPT_CHEAT_ATTACK:  settings.cheat_attack = settings_cycle(settings.cheat_attack, 4, dir); break;
@@ -444,3 +453,34 @@ void settings_option_change(int id, int dir) {
     }
 }
 
+
+/* ---- Presets -------------------------------------------------------------------------- */
+/* Everything as the cartridge was: native resolution, no effects, the original speed,
+ * sprite limit and difficulty. Controls, sound, saves and the language stay as they are. */
+void settings_preset_original(void) {
+    settings.internal_scale = 1;
+    settings.scaler = 0;
+    settings.filter = FILTER_OFF;
+    settings.sharpen = 0;
+    settings.lighting = 0;
+    settings.hdr = 0;
+    settings.no_sprite_limit = false;
+    settings.overclock = 100;
+    settings.integer_scale = false;
+    settings.difficulty = 0;
+    settings.cheat_health = false;
+    settings.texture_pack[0] = 0;
+}
+
+/* The recommended enhancements: the art redrawn at 3x with rounded edges and light
+ * sharpening, a soft glow and the HDR look, no sprite flicker and no slowdown. Gameplay
+ * (difficulty, cheats) is left as the player set it. */
+void settings_preset_enhanced(void) {
+    settings.internal_scale = 3;
+    settings.scaler = 0;
+    settings.sharpen = 1;
+    settings.lighting = 1;
+    settings.hdr = 1;
+    settings.no_sprite_limit = true;
+    settings.overclock = 200;
+}

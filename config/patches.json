@@ -1,4 +1,14 @@
 {
-  "comment": "Instruction-level patches applied by the recompiler (tools/lib/codegen.mjs), by USA address: \"replace\": { pc: [the instruction as expected, [C lines run instead]] }. Each reads a runtime variable from runtime/src/recomp_rt.h whose default reproduces the original instruction. None yet.",
-  "replace": {}
+  "comment": "Instruction-level patches applied by the recompiler (tools/lib/codegen.mjs), by USA address: \"replace\": { pc: [the instruction as expected, [C lines run instead]] }. Each reads a runtime variable from runtime/src/recomp_rt.h whose default reproduces the original instruction.",
+  "replace": {
+    "006B60": [
+      "add.w\td0,($FFFFFE62).w",
+      [
+        "{ uint32_t v = player_health_change(D(0) & 0xFFFFu); wr16(0xFFFE62, addw(v, rd16(0xFFFE62))); }"
+      ]
+    ]
+  },
+  "notes": {
+    "006B60": "The player's health ($FFFE62, max $FFFE60, in apples) changes by d0 here: negative for a hit, positive when healed. player_health_change() scales the hits by the difficulty and drops them with infinite health; 100% keeps the original."
+  }
 }

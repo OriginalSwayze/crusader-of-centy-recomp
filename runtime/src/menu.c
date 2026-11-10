@@ -19,12 +19,12 @@
 #include <string.h>
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION } ItemKind;
-enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS };
+enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
-#define TABS 5
+#define TABS 6
 #define MAX_ROWS 10
-static const char *const tab_names[TABS] = { "GAME", "DISPLAY", "EFFECTS", "MORE", "SPEED" };
+static const char *const tab_names[TABS] = { "GAME", "DISPLAY", "EFFECTS", "PLAY", "MORE", "SPEED" };
 static const Item tab_items[TABS][MAX_ROWS] = {
     { { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
       { ITEM_OPTION, "Rewind", OPT_REWIND }, { ITEM_OPTION, "Fast-forward", OPT_FAST },
@@ -34,14 +34,16 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "Sharpening", OPT_SHARPEN }, { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER },
       { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
     { { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR } },
+    { { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH } },
     { { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO },
       { ITEM_ACTION, "Controls", ACT_CONTROLS },
-      { ITEM_OPTION, "Texture pack", OPT_TEXPACK }, { ITEM_OPTION, "Dump tiles", OPT_DUMP } },
+      { ITEM_OPTION, "Texture pack", OPT_TEXPACK }, { ITEM_OPTION, "Dump tiles", OPT_DUMP },
+      { ITEM_ACTION, "Original experience", ACT_PRESET_ORIGINAL }, { ITEM_ACTION, "Enhanced experience", ACT_PRESET_ENHANCED } },
     { { ITEM_OPTION, "Performance stats", OPT_PERF_STATS }, { ITEM_OPTION, "Auto quality", OPT_AUTO_QUALITY },
       { ITEM_OPTION, "GPU effects", OPT_GPU }, { ITEM_OPTION, "Merged finishing pass", OPT_MERGED },
       { ITEM_OPTION, "AVX2 pixel loops", OPT_AVX2 }, { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
 };
-static const int tab_count[TABS] = { 7, 7, 2, 6, 6 };
+static const int tab_count[TABS] = { 7, 7, 2, 2, 8, 6 };
 
 /* What each option and action does, for the card on the right. */
 static const char *about(const Item *it) {
@@ -51,6 +53,8 @@ static const char *about(const Item *it) {
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
+        case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
+        case ACT_PRESET_ENHANCED: return "The recommended enhancements in one go: the art redrawn at 3x with rounded edges and light sharpening, a soft glow, the HDR look, no sprite flicker and no slowdown. Difficulty and cheats stay as you set them.";
         }
     if (it->kind == ITEM_SLOT) return NULL;
     switch (it->id) {
@@ -66,6 +70,8 @@ static const char *about(const Item *it) {
     case OPT_TEXPACK: return "High-resolution replacements for the game's tiles, from a folder in texture_packs next to the game. None is the original art.";
     case OPT_DUMP: return "Writes every tile shown on screen once to texture_packs/dump, named by its key: the starting point for making a pack.";
     case OPT_REWIND: return "Hold the rewind key to step back in time.";
+    case OPT_DIFFICULTY: return "How much each hit takes from your apples: Original as the cartridge has it, Easy half, Hard one and a half times, Very hard twice. Fractions carry over to the next hit, so Easy really halves the damage over a fight.";
+    case OPT_CHEAT_HEALTH: return "Hits take nothing, and your apples stay full whatever happens.";
     case OPT_FAST: return "How fast the game runs while the fast-forward key is held (Tab, or RB on a controller; change it in Controls).";
     case OPT_LANGUAGE: return settings_language_count() > 1
         ? "The version of the game played: each country's cartridge has its own language. Changing it starts that version from its title screen, with its own saves; unsaved progress here is lost."
@@ -343,6 +349,13 @@ static MenuAction act(int dir, bool activate) {
         if (!activate) return MENU_NONE;
         if (it->id == ACT_RESUME) return MENU_CLOSE;
         if (it->id == ACT_CONTROLS) { sound(1); controls_open(); return MENU_NONE; }
+        if (it->id == ACT_PRESET_ORIGINAL || it->id == ACT_PRESET_ENHANCED) {
+            if (it->id == ACT_PRESET_ORIGINAL) settings_preset_original();
+            else settings_preset_enhanced();
+            notify(it->id == ACT_PRESET_ORIGINAL ? "Original experience set" : "Enhanced experience set");
+            sound(1);
+            return MENU_SETTINGS;
+        }
         /* Reset and quit lose progress: ask for a second press. */
         if (!confirm_pending || confirm_item != selected) {
             confirm_pending = true;
@@ -442,7 +455,7 @@ static float ease_out(float x) { x = clampf(x, 0, 1); return 1 - (1 - x) * (1 - 
 #define OPEN_S  .35f                    /* the opening's length, seconds */
 #define CLOSE_S .2f                     /* and the closing's */
 
-static const int tab_icons[TABS] = { UI_ICON_GAME, UI_ICON_DISPLAY, UI_ICON_EFFECTS, UI_ICON_MORE, UI_ICON_SPEED };
+static const int tab_icons[TABS] = { UI_ICON_GAME, UI_ICON_DISPLAY, UI_ICON_EFFECTS, UI_ICON_CHEATS, UI_ICON_MORE, UI_ICON_SPEED };
 
 static void draw_slot(float x, float y, float w, float t, float alpha) {
     if (slot_info_for != settings.state_slot) {

@@ -47,6 +47,7 @@ typedef struct {
     int  bind_key[11];                  /* input.h IN_*: SDL scancode for each action */
     int  bind_pad[11];                  /* input.h IN_*: SDL game controller button for each action */
     bool cheat_health;                  /* infinite health: no damage, health held full */
+    int  difficulty;                    /* damage taken: 0 original, 1 easy (half), 2 hard (1.5x), 3 very hard (2x) */
     bool cheat_spirit;                  /* infinite spirit power */
     bool cheat_weapons;                 /* weapons never break */
     int  cheat_attack;                  /* attack power: 0 normal, 1 double, 2 quadruple, 3 one-hit kills */
@@ -80,11 +81,15 @@ enum { OPT_WIDESCREEN, OPT_ASPECT, OPT_FULLSCREEN, OPT_INTEGER, OPT_WINDOW, OPT_
        OPT_TEXPACK, OPT_DUMP,
        OPT_COMBAT, OPT_RUMBLE, OPT_FAST, OPT_TIMER, OPT_RANDOMIZER, OPT_HDR,
        OPT_PERF_STATS, OPT_AUTO_QUALITY, OPT_MERGED, OPT_AVX2, OPT_GPU,
-       OPT_LANGUAGE };                  /* the version played: each has its own language */
+       OPT_LANGUAGE,
+       OPT_DIFFICULTY };                /* damage the player takes (cheats.c) */                  /* the version played: each has its own language */
 /* Set by the game when it knows: the GPU effects are running (the renderer is OpenGL and
  * the shader built), and whether the CPU has AVX2. The launcher leaves them false. */
 extern bool gpu_effects_running, cpu_has_avx2;
 enum { OST_MODE_ALL, OST_MODE_REPEAT, OST_MODE_SHUFFLE, OST_MODE_COUNT };
+/* The two presets: everything as the cartridge was, or the recommended enhancements. */
+void settings_preset_original(void);
+void settings_preset_enhanced(void);
 void settings_set_volume_fraction(float v);         /* sets volume from a slider (0-1), in steps of 5 */                    /* all three cheats as presets: Off, Health, Health + spirit, All */
 void settings_option_text(int id, char *out, size_t n);
 void settings_option_change(int id, int dir);
