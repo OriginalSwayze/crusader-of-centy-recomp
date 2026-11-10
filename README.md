@@ -24,9 +24,10 @@ interpreter. It shares its recompiler and runtime with
 | In-game menu: save/load slots with thumbnails, options, controls, reset, quit | done |
 | Internal resolution 2-6x, scalers, display filters, lighting, HDR, sharpening, texture packs | done |
 | Slowdown fix (68000 at 150-300%), sprite flicker fix, fast-forward | done |
-| Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`); not yet tried against a real enemy |
+| Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
+| Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
-| Widescreen, smooth motion, combat info, map, launcher | not yet: these hook into the game's own code and RAM, which is not mapped for Crusader of Centy yet (`runtime/src/unported.c`) |
+| Widescreen, smooth motion, map, launcher | not yet: these hook into the game's own code and RAM, which is not mapped for Crusader of Centy yet (`runtime/src/unported.c`) |
 
 ### Tested
 

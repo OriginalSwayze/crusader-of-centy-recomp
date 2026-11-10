@@ -1,12 +1,11 @@
 /* The Beyond Oasis Recomp features that hook into that game's code and RAM (its object
  * lists, camera, map layers and sound driver) and have not been mapped in Crusader of
- * Centy yet: widescreen, smooth motion, combat info, the auto-map, the outfit colours,
+ * Centy yet: widescreen, smooth motion, the auto-map, the outfit colours,
  * the element particles and the soundtrack player. Each is "off" here: the game runs and
  * draws exactly as the cartridge does. */
 #include <string.h>
 #include "genesis.h"
 #include "motion.h"
-#include "combat.h"
 #include "automap.h"
 #include "outfit.h"
 #include "fx.h"
@@ -28,15 +27,6 @@ unsigned motion_sprite_moves(const HdFrame *f, int dx[80], int dy[80], int *owne
 }
 void motion_player_entries(const uint8_t *sat, int count, bool out[80]) { (void)sat; (void)count; memset(out, 0, 80 * sizeof *out); }
 bool motion_entry_owner(int i, uint32_t *object, uint16_t *kind) { (void)i; (void)object; (void)kind; return false; }
-
-/* ---- Combat info, rumble and stats (combat.h) ------------------------------------ */
-void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool live) { (void)f; (void)world; (void)cam_x; (void)cam_y; (void)live; }
-void combat_clear(void) {}
-bool combat_active(const HdPost *p) { (void)p; return false; }
-void combat_draw(uint32_t *px, int w, int h, const HdPost *p) { (void)px; (void)w; (void)h; (void)p; }
-void combat_stats_load(const char *base_dir) { (void)base_dir; }
-void combat_stats_save(const char *base_dir) { (void)base_dir; }
-int  combat_stats_lines(char lines[][64], int max) { (void)lines; (void)max; return 0; }
 
 /* ---- Auto-map (automap.h) ---------------------------------------------------------- */
 void automap_frame(const HdFrame *f, bool world, float cam_x, float cam_y) { (void)f; (void)world; (void)cam_x; (void)cam_y; }

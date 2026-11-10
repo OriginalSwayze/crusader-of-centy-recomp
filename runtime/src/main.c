@@ -17,6 +17,7 @@
 #include "recomp_rt.h"
 #include "texpack.h"
 #include "menu.h"
+#include "combat.h"
 #include "savestate.h"
 #include "ui.h"
 #include "text.h"
@@ -346,13 +347,26 @@ static SDL_Rect display_rect(int win_w, int win_h) {
     return r;
 }
 
-/* The finishing steps for this frame (hd_post). The effects that follow the game world
- * (particles, combat info) need its camera, which is not mapped for this game yet. */
+/* The finishing steps for this frame (hd_post), with the camera from the game's RAM
+ * ($FFA4F2 / $FFA4F6, world pixels) while the game is in play (the player's record at
+ * $FFAC00 is set up; combat.c). */
 static HdPost finishing(int scale, float t) {
     HdPost p = { settings.sharpen, settings.lighting, false, false,
                  false, 0, 0, t, scale < 1 ? 1 : scale, vdp_opts.extra_width, 0 };
     p.hdr = settings.hdr;
+    p.world = (bus.ram[0xAC00] | bus.ram[0xAC01]) != 0;
+    p.cam_x = (float)(int16_t)(bus.ram[0xA4F2] << 8 | bus.ram[0xA4F3]);
+    p.cam_y = (float)(int16_t)(bus.ram[0xA4F6] << 8 | bus.ram[0xA4F7]);
     return p;
+}
+
+/* After each game frame: the frame's layers for the renderer, and combat info and stats.
+ * `live` is false while rewinding and in headless runs: nothing is counted or felt then. */
+static void after_frame(bool live) {
+    if (!vdp_opts.hd_capture) return;
+    hd_frame_done();
+    HdPost here = finishing(1, 0);
+    combat_frame(&hd_frame, here.world, here.cam_x, here.cam_y, live);
 }
 
 /* The ROM to play when none is set or it no longer loads: this build's versions in the rom
@@ -524,6 +538,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--poke") && i + 1 < argc) cheats_add_codes(argv[++i]);   /* FFxxxx:VV[VV],... */
         else if (!strcmp(argv[i], "--difficulty") && i + 1 < argc) { settings.difficulty = atoi(argv[++i]) & 3; test_overrides = true; }   /* 0-3 */
         else if (!strcmp(argv[i], "--infinite-health")) { settings.cheat_health = true; test_overrides = true; }
+        else if (!strcmp(argv[i], "--combat") && i + 1 < argc) { settings.combat_info = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
+        else if (!strcmp(argv[i], "--play-timer") && i + 1 < argc) { settings.play_timer = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--menu-shot") && i + 3 < argc) {
             /* --menu-shot F.png W H: open the in-game menu over the last frame and render it. */
             menu_shot = argv[++i];
@@ -619,7 +635,7 @@ int main(int argc, char **argv) {
             cheats_frame();
             Uint64 g0 = SDL_GetPerformanceCounter();
             machine_run_frame(framebuffer, FB_W);
-            if (vdp_opts.hd_capture) hd_frame_done();
+            after_frame(false);
             if (bench) {
                 /* --bench N: the game frame, then N pictures of it as the window draws them
                  * (the layers put together at a point between frames, then the finishing
@@ -895,6 +911,7 @@ int main(int argc, char **argv) {
     /* --window-test: the window loop as it runs for a player, hidden, from --load's slot;
      * the last picture as the window shows it is saved, with the speed state. */
     if (window_test && load_from && !savestate_load(load_from)) fprintf(stderr, "could not load slot %d\n", load_from);
+    combat_stats_load(base_dir);
     while (running) {
         SDL_Event e;
         int ww, wh;
@@ -937,6 +954,7 @@ int main(int argc, char **argv) {
                 HdPost here = finishing(1, 0);
                 preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);
                 preview_save(base_dir);         /* the frame the launcher's previews will show */
+                combat_stats_save(base_dir);
                 menu_open(framebuffer, frame_width(), vdp_screen_height(), FB_W, r.x, r.y, r.w, r.h, ww, wh,
                           win_w ? (float)ww / win_w : 1);
             }
@@ -995,7 +1013,7 @@ int main(int argc, char **argv) {
                 /* Redraw the frame we stepped back to, then return to the state before it. */
                 pad_state[0] = old_pad;
                 machine_run_frame(framebuffer, FB_W);
-                if (vdp_opts.hd_capture) hd_frame_done();
+                after_frame(false);
                 rewind_restore_head();
                 sound_out_count = 0;            /* silent while rewinding */
             } else if (!rewinding) {
@@ -1010,7 +1028,7 @@ int main(int argc, char **argv) {
                     speed.frames++;
                     cheats_frame();
                     machine_run_frame(framebuffer, FB_W);
-                    if (vdp_opts.hd_capture) hd_frame_done();
+                    after_frame(true);
                 }
                 fast_now = runs > 1;
             } else {
@@ -1065,7 +1083,8 @@ int main(int argc, char **argv) {
             HdPost post = finishing(hd_w / frame_width(), (float)(SDL_GetPerformanceCounter() - start) / freq);
             SDL_Texture *shown = NULL;
             if (gpu_effects_running && settings.gpu_effects && (post.lighting || post.hdr || post.sharpen)) {
-                /* The card grades, lights and sharpens. */
+                /* The card grades, lights and sharpens; damage numbers and bars go on first. */
+                if (post.world && combat_active(&post)) combat_draw(hd_px, hd_w, hd_h, &post);
                 shown = gpu_fx_finish(ren, hd_px, hd_w, hd_h, hd_w, &post, iscale > 1);
                 t_effects = SDL_GetPerformanceCounter();
                 t_upload = t_effects;
@@ -1145,6 +1164,7 @@ int main(int argc, char **argv) {
 
     save_coverage();
     save_sram();
+    combat_stats_save(base_dir);
     if (!menu_is_open()) {
         HdPost here = finishing(1, 0);
         preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);

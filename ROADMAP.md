@@ -21,7 +21,11 @@ Status markers:
 |---|---|---|
 | Player X / Y | `$FFAC12` / `$FFAC16` (object record at `$FFAC00`, 0x54 bytes per object) | camera, effects, map, health bars (next) |
 | Health / max health (apples) | `$FFFE62` / `$FFFE60` | infinite health, HUD |
-| Hit / heal routine | `$6B36`: adds `$FFB100` to the health at `$6B60` | difficulty, infinite health (`config/patches.json`) |
+| Hit / heal routine | `$6B36`: adds `$FFB100` to the health at `$6B60` | difficulty, infinite health (`config/patches.json`), tested on a real hit |
+| Camera X / Y | `$FFA4F2` / `$FFA4F6` (world pixels, picture's top left) | combat info; next: world effects, map |
+| Object list | `$FFC800`, 128 records of 0x40: +0 type, +2 health (sixteenths), +4 X, +8 Y (16.16, middle), +20 hit timer, +24 damage waiting | combat info, stats |
+| Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
+| "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
 (bigger hits). The Japanese and Korean addresses are found automatically
@@ -81,13 +85,13 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Quick-save / quick-load, save anywhere | Done: F2 / F4 save states work anywhere |
 | Difficulty: Original, Easy, Hard, Very hard | Done: PLAY > Difficulty (damage taken 100 / 50 / 150 / 200%) |
 | Infinite health | Done: PLAY > Infinite health |
-| Enemy / boss health bars, damage numbers | Map: enemy object health |
+| Enemy / boss health bars, damage numbers | Done, to be confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
 | Autosave at progression points | Map: needs the story-progress flags; until then save states |
 | Movement speed option | Map: the player's movement code |
-| Gameplay statistics, playtime, death counter, defeats | Map: deaths are near (health reaching 0 at `$6B68`) |
+| Gameplay statistics, playtime, death counter, defeats | Done: GAME > Stats (`stats.ini`), PLAY > Play timer |
 | Improved weapon switching | Hard: the game's inventory code |
 | Separate music / sound effects / ambience volume | Hard: the sound driver mixes music and effects on one chip; needs the driver's channel use mapped |
-| Configurable vibration | Map: needs hits (health hook is there) |
+| Configurable vibration | Done: PLAY > Rumble (off, light, strong) on hits, defeats and being hit |
 | HUD scaling / positioning | Hard: the HUD is drawn by the game into the same picture |
 | Enhanced interface theme, high-resolution inventory | Hard: the inventory is the game's own screen; would be a full redraw from its RAM |
 | Original interface theme | Done: the game's own interface is untouched |
@@ -108,11 +112,8 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. **Map the rest of the core RAM** by playing to the first enemies: the object list's
-   enemies and their health, the camera, the map number, story flags. This unlocks most of
-   the "Map" rows at once.
-2. Bring back the Beyond Oasis features that only needed those addresses: combat info and
-   health bars, statistics, the auto-map, smooth motion.
+1. Confirm combat info in a real fight; find the map number and story flags.
+2. Bring back the Beyond Oasis features that need those: the auto-map, smooth motion.
 3. Widescreen camera (patch the map streaming and camera clamp).
 4. World effects that need the camera: weather, vegetation, shadows, day/night.
 5. Companion pages, photo mode, then the larger modes (New Game+, Boss Rush).

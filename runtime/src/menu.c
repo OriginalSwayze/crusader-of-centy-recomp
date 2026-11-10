@@ -9,6 +9,7 @@
 #include "controls.h"
 #include "preview.h"
 #include "launcher_scene.h"
+#include "combat.h"
 #include "foil.h"
 #include "genesis.h"
 #include "savestate.h"
@@ -19,7 +20,7 @@
 #include <string.h>
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION } ItemKind;
-enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED };
+enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED, ACT_STATS };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 #define TABS 6
@@ -27,6 +28,7 @@ typedef struct { ItemKind kind; const char *label; int id; } Item;
 static const char *const tab_names[TABS] = { "GAME", "DISPLAY", "EFFECTS", "PLAY", "MORE", "SPEED" };
 static const Item tab_items[TABS][MAX_ROWS] = {
     { { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
+      { ITEM_ACTION, "Stats", ACT_STATS },
       { ITEM_OPTION, "Rewind", OPT_REWIND }, { ITEM_OPTION, "Fast-forward", OPT_FAST },
       { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } },
     { { ITEM_OPTION, "Integer scaling", OPT_INTEGER }, { ITEM_OPTION, "Internal resolution", OPT_INTERNAL },
@@ -34,7 +36,8 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "Sharpening", OPT_SHARPEN }, { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER },
       { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
     { { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR } },
-    { { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH } },
+    { { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
+      { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER } },
     { { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO },
       { ITEM_ACTION, "Controls", ACT_CONTROLS },
       { ITEM_OPTION, "Texture pack", OPT_TEXPACK }, { ITEM_OPTION, "Dump tiles", OPT_DUMP },
@@ -43,7 +46,7 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "GPU effects", OPT_GPU }, { ITEM_OPTION, "Merged finishing pass", OPT_MERGED },
       { ITEM_OPTION, "AVX2 pixel loops", OPT_AVX2 }, { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
 };
-static const int tab_count[TABS] = { 7, 7, 2, 2, 8, 6 };
+static const int tab_count[TABS] = { 8, 7, 2, 5, 8, 6 };
 
 /* What each option and action does, for the card on the right. */
 static const char *about(const Item *it) {
@@ -53,6 +56,7 @@ static const char *about(const Item *it) {
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
+        case ACT_STATS: return NULL;
         case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
         case ACT_PRESET_ENHANCED: return "The recommended enhancements in one go: the art redrawn at 3x with rounded edges and light sharpening, a soft glow, the HDR look, no sprite flicker and no slowdown. Difficulty and cheats stay as you set them.";
         }
@@ -72,6 +76,9 @@ static const char *about(const Item *it) {
     case OPT_REWIND: return "Hold the rewind key to step back in time.";
     case OPT_DIFFICULTY: return "How much each hit takes from your apples: Original as the cartridge has it, Easy half, Hard one and a half times, Very hard twice. Fractions carry over to the next hit, so Easy really halves the damage over a fight.";
     case OPT_CHEAT_HEALTH: return "Hits take nothing, and your apples stay full whatever happens.";
+    case OPT_COMBAT: return "The damage of every hit rises from the enemy as a number, gold for a defeat in one blow; with health bars, a bar over an enemy shows what it has left for a few seconds after each hit.";
+    case OPT_RUMBLE: return "The controller rumbles when you land a hit, harder when an enemy is defeated and when you are hit.";
+    case OPT_TIMER: return "This session's play time in the top corner of the picture, for speedruns and keeping track. The total is under Stats.";
     case OPT_FAST: return "How fast the game runs while the fast-forward key is held (Tab, or RB on a controller; change it in Controls).";
     case OPT_LANGUAGE: return settings_language_count() > 1
         ? "The version of the game played: each country's cartridge has its own language. Changing it starts that version from its title screen, with its own saves; unsaved progress here is lost."
@@ -349,6 +356,7 @@ static MenuAction act(int dir, bool activate) {
         if (!activate) return MENU_NONE;
         if (it->id == ACT_RESUME) return MENU_CLOSE;
         if (it->id == ACT_CONTROLS) { sound(1); controls_open(); return MENU_NONE; }
+        if (it->id == ACT_STATS) return MENU_NONE;     /* shown on the card */
         if (it->id == ACT_PRESET_ORIGINAL || it->id == ACT_PRESET_ENHANCED) {
             if (it->id == ACT_PRESET_ORIGINAL) settings_preset_original();
             else settings_preset_enhanced();
@@ -573,6 +581,21 @@ static void draw_card(float t, float alpha) {
     ui_holo_bar(x, y + 24, 40 * in, 2, t, .85f * alpha);
     y += 44;
     if (it->kind == ITEM_SLOT) { draw_slot(x, y, w, t, alpha); return; }
+    if (it->kind == ITEM_ACTION && it->id == ACT_STATS) {
+        char lines[12][64];
+        int n = combat_stats_lines(lines, 12);
+        for (int i = 0; i < n; i++) {
+            char *tab_at = strchr(lines[i], '\t');
+            if (!tab_at) continue;
+            *tab_at = 0;
+            float ly = y + i * 38 + (i >= 2 ? 22 : 0);   /* this session, then all sessions */
+            if (i == 2) ui_holo_bar(x, ly - 18, w, 1, t, .35f * alpha);
+            ui_draw_text(lines[i], "Segoe UI", 16, 400, 0, x, ly, C_LABEL, C_LABEL, alpha);
+            float vw = ui_text_width(tab_at + 1, "Segoe UI Semibold", 17, 600, 0);
+            ui_draw_text(tab_at + 1, "Segoe UI Semibold", 17, 600, 0, x + w - vw, ly - 1, rgb_hex(0xFFE4A0), rgb_hex(0xFFE4A0), alpha);
+        }
+        return;
+    }
     if (it->kind == ITEM_OPTION && preview_supported(it->id) && preview_ready()) {
         float ph = w * 9 / 16.f;
         preview_draw(it->id, x, y, w, ph, t);
