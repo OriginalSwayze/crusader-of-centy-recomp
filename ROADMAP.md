@@ -64,7 +64,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 |---|---|
 | Dynamic lighting (torches, caves, glowing objects, glow around the player) | Engine for glow; light *sources* placed in the world need the map and object types: Map |
 | Time-of-day / day-night tint | Build: the camera and "in play" are mapped; indoors and outdoors still need telling apart, or houses would darken at night |
-| Enhanced water (ripples, reflections, shoreline foam) | Done: EFFECTS > Water, tuned to Centy's cyan streams; splashes when wading in still to do |
+| Enhanced water (ripples, reflections, shoreline foam) | Done: EFFECTS > Water, tuned to Centy's cyan streams, with droplets and ripples when wading (the feet's ground read from the frame's planes) |
 | Falling leaves, fireflies, rain, snow | Removed: they were a Beyond Oasis-style overlay, not part of this game's look; may come back per area once areas are mapped |
 | Grass, flowers and trees swaying; dust | Build: needs the plants found in the scenery |
 | Fog, wind, weather by area | Build: needs the areas mapped (the map number is, `$FFFE76`) |

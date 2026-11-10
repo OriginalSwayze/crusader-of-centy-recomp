@@ -65,7 +65,7 @@ static uint32_t session_defeated;
 
 /* ---- Particles: world pixels, moved once a game frame --------------------------------- */
 typedef struct { float x, y, vx, vy, size; int age, life; uint32_t color; uint8_t kind; } Particle;
-enum { P_SPARK, P_EMBER, P_LEAF, P_FLASH, P_RING };
+enum { P_SPARK, P_EMBER, P_LEAF, P_FLASH, P_RING, P_DROP, P_RIPPLE };
 #define MAX_PARTICLES 768
 static Particle parts[MAX_PARTICLES];
 static int nparts;
@@ -120,9 +120,40 @@ static void move_particles(void) {
         case P_EMBER: p->vx *= .93f; p->vy = p->vy * .93f + .06f; break;
         case P_LEAF:  p->vx = p->vx * .9f + sinf(p->age * .35f + p->size * 9) * .18f; p->vy = p->vy * .9f + .05f; break;
         case P_RING:  p->size += 1.6f - p->age * .06f; break;
+        case P_DROP:  p->vx *= .96f; p->vy += .16f; break;
+        case P_RIPPLE: p->size += .45f; break;
         default: break;
         }
         i++;
+    }
+}
+
+/* Wading: while the player walks through water (the Water effect on), droplets kick up
+ * from the feet and rings spread on the surface. The ground under the feet is read from the
+ * frame's planes, so sprites standing over it do not count. */
+static void splashes(const HdFrame *f, bool world, float cam_x, float cam_y) {
+    static float last_x, last_y;
+    static int step;
+    /* the record's X is a little left of the sprite's middle */
+    float px = (float)(int16_t)peek16(0xAC12) + 7, py = (float)(int16_t)peek16(0xAC16);
+    float moved = fabsf(px - last_x) + fabsf(py - last_y);
+    last_x = px; last_y = py;
+    if (!settings.water || !world || !in_play() || moved < .3f || moved > 12) { step = 0; return; }
+    int gx = (int)(px - cam_x) + f->extra, gy = (int)(py - cam_y) + 6;   /* the feet */
+    int wet = 0;
+    for (int k = -4; k <= 4; k += 4) wet += hd_water_at(gx + k, gy) + hd_water_at(gx + k, gy + 3);
+    if (wet < 4) { step = 0; return; }
+    if (step++ % 7) return;
+    Particle *r = new_particle();
+    if (r) { r->x = px; r->y = py + 7; r->size = 3; r->life = 26; r->kind = P_RIPPLE; r->color = 0xE8FFFF; }
+    for (int i = 0; i < 4; i++) {
+        Particle *p = new_particle();
+        if (!p) return;
+        float a = 3.1416f + frand() * 3.1416f;  /* upward half */
+        p->x = px + (frand() - .5f) * 8; p->y = py + 6;
+        p->vx = cosf(a) * (.5f + frand() * .7f); p->vy = sinf(a) * (1.1f + frand() * .9f);
+        p->size = 1.f + frand() * .5f; p->life = 12 + rand() % 7; p->kind = P_DROP;
+        p->color = frand() < .5f ? 0xFFFFFF : 0xF0FCFF;
     }
 }
 
@@ -170,6 +201,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
     bool play = in_play();
     if (live && play) { session_s += machine_frame_s(); total.play_s += machine_frame_s(); }
     move_particles();
+    splashes(f, world, cam_x, cam_y);
     if (combat_test_burst > 0 && --combat_test_burst == 0) {   /* --test-burst: a hit and a defeat by the player */
         float px = (float)(int16_t)peek16(0xAC12), py = (float)(int16_t)peek16(0xAC16);
         spark_burst(px - 20, py, false);
@@ -314,6 +346,20 @@ static void draw_particles(uint32_t *px, int w, int h, const HdPost *p, float s)
         switch (q->kind) {
         case P_FLASH: glow(px, w, h, x, y, q->size * s * (.6f + t), q->color, (int)(200 * fade * fade), GLOW_ADD); break;
         case P_RING:  glow(px, w, h, x, y, q->size * s, q->color, (int)(230 * fade), GLOW_RING); break;
+        case P_DROP:  glow(px, w, h, x, y, q->size * s, q->color, (int)(235 * fade), GLOW_SOLID); break;
+        case P_RIPPLE: {
+            /* a flat ring on the water: an ellipse half as tall as it is wide */
+            float rx = q->size * s, ry = rx * .45f, band = s * .9f + 1;
+            int a = (int)(150 * fade);
+            int x0 = (int)(x - rx - band), x1 = (int)(x + rx + band), y0 = (int)(y - ry - band), y1 = (int)(y + ry + band);
+            for (int yy = y0 < 0 ? 0 : y0; yy <= y1 && yy < h; yy++)
+                for (int xx = x0 < 0 ? 0 : x0; xx <= x1 && xx < w; xx++) {
+                    float dx = (xx + .5f - x) / rx, dy = (yy + .5f - y) / ry;
+                    float e = fabsf(sqrtf(dx * dx + dy * dy) - 1) * rx / band;
+                    if (e < 1) add_light(&px[(size_t)yy * w + xx], q->color, (int)(a * (1 - e)));
+                }
+            break;
+        }
         case P_SPARK: {
             /* a short streak along its path: three lights from where it was to where it is */
             for (int k = 0; k < 3; k++) {

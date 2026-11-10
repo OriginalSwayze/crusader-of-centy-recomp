@@ -561,6 +561,13 @@ static inline uint32_t plane_top(int line, int x, int *plane) {
     return bo ? b : 0;
 }
 
+bool hd_water_at(int x, int y) {
+    if (y < 0 || y >= hd_frame.h || x < 0 || x >= hd_frame.w) return false;
+    int plane;
+    uint32_t p = plane_top(y, x, &plane);
+    return ((p >> 16) & 0x0F) && is_water_colour((uint16_t)p);
+}
+
 static void make_water(int scale, const uint32_t *sprites) {
     int w = hd_frame.w, h = hd_frame.h;
     if (w != water_w || h != water_h) {

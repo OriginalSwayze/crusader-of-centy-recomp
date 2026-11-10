@@ -83,6 +83,8 @@ extern bool hd_texpack;
 extern float hd_time;                   /* seconds, for animations drawn with the layers */
 /* Water shimmers, foams, glints and reflects the sprites above it (while compositing). */
 extern bool hd_water;
+/* Is the scenery at game pixel (x, y) of the last frame water (the Water effect's colour test)? */
+bool hd_water_at(int x, int y);
 
 /* The finishing steps on the picture before it goes to the GPU (hd_post): glow,
  * particles, sharpening. */
