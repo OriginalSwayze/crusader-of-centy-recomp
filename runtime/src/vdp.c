@@ -262,6 +262,7 @@ static bool window_covers(int x, int line) {
 }
 
 static void draw_window(uint8_t *out, int w, int extra, int line) {
+    if (vdp_opts.hide_layers & 8) return;          /* the window hidden: plane A shows through */
     bool h40 = vdp_screen_width() == 320;
     uint32_t nt = (vdp.reg[3] & (h40 ? 0x3C : 0x3E)) << 10;
     int cells = h40 ? 64 : 32;
@@ -305,6 +306,9 @@ static void draw_sprites(uint8_t *out, int w, int extra, int line) {
         link = size & 0x7F;
         if (line >= y && line < y + vcells * 8) {
             uint16_t attr = vram16(s + 4);
+            /* The HUD (apples, gems, the item box) is high-priority sprites from the first
+             * 256 tiles, all in the top 48 lines; the characters' sprites are none of these. */
+            if (vdp_opts.hide_hud && (attr & 0x8000) && (attr & 0x7FF) < 0x100 && y + vcells * 8 <= 48) continue;
             int x = (vram16(s + 6) & 0x1FF) - 128;
             if (++on_line > max_line) { vdp.status |= 0x40; break; }
             /* A sprite at X=0 hides every lower-priority sprite on this line. */

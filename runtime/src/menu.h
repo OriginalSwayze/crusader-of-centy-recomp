@@ -16,6 +16,7 @@ typedef enum {
     MENU_PLAY,                          /* the launcher: start the game */
     MENU_ROM,                           /* the launcher: pick a ROM */
     MENU_CONTINUE,                      /* the launcher: start from the newest save state */
+    MENU_PHOTO,                         /* photo mode: the game frozen, the menu gone */
 } MenuAction;
 
 /* Opens the menu over the paused frame fb (fb_w x fb_h, pitch in pixels), which the

@@ -23,7 +23,7 @@
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION, ITEM_PAGE } ItemKind;
 enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED,
-       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE };
+       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 /* ---- The pages --------------------------------------------------------------------------- */
@@ -31,9 +31,9 @@ enum { PAGE_HOME, PAGE_SETTINGS, PAGE_DISPLAY, PAGE_EFFECTS, PAGE_GAMEPLAY, PAGE
 #define MAX_ROWS 10
 typedef struct { const char *title; int count; Item items[MAX_ROWS]; } Page;
 
-static const Page home_pause = { "Paused", 8, {
+static const Page home_pause = { "Paused", 9, {
     { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
-    { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
+    { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Photo mode", ACT_PHOTO }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
     { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } } };
 /* The launcher's home: Continue appears when there is a save state to continue from. */
 static const Item launcher_items[] = {
@@ -78,6 +78,7 @@ static const char *about(const Item *it) {
     if (it->kind == ITEM_ACTION)
         switch (it->id) {
         case ACT_RESUME: return "Back to the game.";
+        case ACT_PHOTO: return "Freezes the game for a picture: hide the HUD, then save it at the internal resolution with every effect. F9 in play.";
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
@@ -478,6 +479,7 @@ static MenuAction act(int dir, bool activate) {
         if (!activate) return MENU_NONE;
         switch (it->id) {
         case ACT_RESUME: return MENU_CLOSE;
+        case ACT_PHOTO: sound(1); return MENU_PHOTO;
         case ACT_PLAY: sound(1); return MENU_PLAY;
         case ACT_CONTINUE: sound(1); return MENU_CONTINUE;
         case ACT_ROM: sound(1); return MENU_ROM;

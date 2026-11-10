@@ -62,6 +62,7 @@ typedef struct {
     bool no_sprite_limit;               /* draw past the 20-per-line hardware limit (no flicker) */
     bool mask_sides;                    /* draw the widescreen columns black (screens made for 320) */
     int  hide_layers;                   /* debugging: bit 0 plane A, 1 plane B, 2 sprites, 3 window */
+    bool hide_hud;                      /* photo mode: leave out the HUD's sprites (vdp.c) */
     bool hd_capture;                    /* keep each line's layers for hd_compose() (hd.h) */
     bool tile_refs;                     /* keep each pixel's tile reference for texture packs (texpack.h) */
 } VdpOptions;

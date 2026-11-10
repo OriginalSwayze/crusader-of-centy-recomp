@@ -107,7 +107,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 |---|---|
 | Interactive world map, discovered locations, completion | Started: GAME > Map fills in each map as you explore (`runtime/src/automap.c`, `automap.bin`); a world overview, markers and completion still to do |
 | Bestiary with defeat counts | Map: enemy types |
-| Photo mode: pause, hide HUD, resolution, effects | Build: pause and full-resolution screenshots are close; hiding the HUD needs to know which layer it is on |
+| Photo mode: pause, hide HUD, resolution, effects | Done: Paused > Photo mode or F9: the game freezes, H / Y hides the HUD (its sprites), Enter / A saves a PNG at the internal resolution with every effect to `screenshots/` |
 | Photo mode camera zoom / free camera | Hard: only what the game has loaded in video memory can be shown |
 | New Game+, Boss Rush, boss rematch, time attack, challenge modes | Hard: new game logic on top of the original; needs the save format and story flags mapped |
 | Steam achievements | Out: needs a Steam release and app ID, which a build from your own ROM cannot have; local achievements (a menu page) are possible after Map |
@@ -119,4 +119,4 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 1. Confirm combat info in a real fight; find the story flags.
 2. Smooth motion (needs which sprites belong to which object).
 4. World effects that need the camera: vegetation, shadows, day/night.
-5. Companion pages, photo mode, then the larger modes (New Game+, Boss Rush).
+5. Companion pages, then the larger modes (New Game+, Boss Rush).

@@ -26,7 +26,15 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <commdlg.h>
+#include <direct.h>
+#define make_dir(p) _mkdir(p)
+#define PATH_SEP "\\"
+#else
+#include <sys/stat.h>
+#define make_dir(p) mkdir(p, 0755)
+#define PATH_SEP "/"
 #endif
+#include <time.h>
 #include "m68k.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -581,6 +589,78 @@ static bool run_launcher(SDL_Window *win, SDL_Renderer *ren, SDL_AudioDeviceID a
 
 void console_attach(void);           /* console.c */
 
+/* ---- Photo mode ---------------------------------------------------------------------------
+ * The game stands still (no frames run) and the menu is gone. The HUD can be left out: the
+ * frozen frame is drawn again from video memory without its sprites. Pictures are saved at
+ * the internal resolution with every effect, into screenshots/ next to the game. */
+static bool photo, photo_hud = true, photo_test;
+static double photo_hint_at;            /* when the hint bar was last shown (seconds) */
+static char photo_hint_text[200];
+static SDL_Texture *photo_hint_tex;
+static SDL_Rect photo_hint_rect;
+static int photo_hint_for_w, photo_hint_for_h;
+
+/* Draws the frozen frame again from the VDP's state, which is left as it was. */
+static void photo_redraw(void) {
+    static Vdp saved;
+    saved = vdp;
+    for (int line = 0; line < vdp_screen_height(); line++) vdp_render_line(line, framebuffer + (size_t)line * FB_W);
+    vdp = saved;
+}
+
+static void photo_hint(const char *text, double now) {
+    snprintf(photo_hint_text, sizeof photo_hint_text, "%s", text);
+    photo_hint_for_w = 0;               /* rebuilt on the next draw */
+    photo_hint_at = now;
+}
+
+/* The bar along the bottom with the keys, fading out after a few seconds. */
+static void photo_draw_hint(SDL_Renderer *ren, int ww, int wh, double now) {
+    double age = now - photo_hint_at;
+    if (age > 4.5) return;
+    if (!photo_hint_tex || photo_hint_for_w != ww || photo_hint_for_h != wh) {
+        ui_begin(ww, wh);
+        int y0 = (int)ui_y(668), y1 = wh;
+        if (y0 < 0) y0 = 0;
+        for (int y = y0; y < y1; y++)
+            for (int x = 0; x < ww; x++) ui_px[(size_t)y * ww + x] = 0x0D1511;
+        float tw = ui_text_width(photo_hint_text, "Segoe UI", 15, 500, .5f);
+        ui_draw_text(photo_hint_text, "Segoe UI", 15, 500, .5f, 640 - tw / 2, 682, rgb_hex(0xF5F1E4), rgb_hex(0xEBC98F), 1);
+        if (photo_hint_tex) SDL_DestroyTexture(photo_hint_tex);
+        photo_hint_tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STATIC, ww, y1 - y0);
+        if (!photo_hint_tex) return;
+        SDL_UpdateTexture(photo_hint_tex, NULL, ui_px + (size_t)y0 * ww, ww * 4);
+        SDL_SetTextureBlendMode(photo_hint_tex, SDL_BLENDMODE_BLEND);
+        photo_hint_rect = (SDL_Rect){ 0, y0, ww, y1 - y0 };
+        photo_hint_for_w = ww; photo_hint_for_h = wh;
+    }
+    double a = age < 3.5 ? 1 : 4.5 - age;
+    SDL_SetTextureAlphaMod(photo_hint_tex, (Uint8)(215 * a));
+    SDL_RenderCopy(ren, photo_hint_tex, NULL, &photo_hint_rect);
+}
+
+/* The picture as the window shows it, at the internal resolution, saved as a PNG. */
+static bool photo_save(int iscale, char *out, size_t n) {
+    char dir[1100];
+    snprintf(dir, sizeof dir, "%sscreenshots", base_dir);
+    make_dir(dir);
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    snprintf(out, n, "%s" PATH_SEP "Centy %04d-%02d-%02d %02d.%02d.%02d.png", dir, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+             tm->tm_hour, tm->tm_min, tm->tm_sec);
+    bool hd = (iscale > 1 || settings.water || hd_texpack) && hd_frame.h == vdp_screen_height();
+    if (hd) {
+        hd_compose(iscale);
+        HdPost post = finishing(hd_w / frame_width(), hd_time);
+        const uint32_t *img = hd_post(hd_px, hd_w, hd_h, hd_w, &post);
+        return png_write(out, img, hd_w, hd_h, hd_w) == 0;
+    }
+    int w = frame_width(), h = vdp_screen_height();
+    HdPost post = finishing(1, hd_time);
+    const uint32_t *img = hd_post(framebuffer, w, h, FB_W, &post);
+    return png_write(out, img, w, h, img == framebuffer ? FB_W : w) == 0;
+}
+
 int main(int argc, char **argv) {
     console_attach();
     char *bp = SDL_GetBasePath();
@@ -702,6 +782,7 @@ int main(int argc, char **argv) {
             settings.internal_scale = atoi(argv[++i]);
         }
         else if (!strcmp(argv[i], "--window-test") && i + 2 < argc) { window_test = atof(argv[++i]); window_test_png = argv[++i]; }
+        else if (!strcmp(argv[i], "--photo-test")) photo_test = true;   /* with --window-test: photo mode, HUD hidden, a picture saved */
         else if (!strcmp(argv[i], "--bench") && i + 1 < argc) bench = atoi(argv[++i]);   /* pictures per game frame, as the window draws them */
         else if (!strcmp(argv[i], "--hd-shot") && i + 2 < argc) {
             /* --hd-shot F.png SCALE: save the last frame at the internal resolution SCALE (2-4). */
@@ -1134,6 +1215,34 @@ int main(int argc, char **argv) {
         SDL_GetRendererOutputSize(ren, &ww, &wh);
         while (SDL_PollEvent(&e)) {
             pads_event(&e);
+            if (photo) {
+                double tnow = (double)(SDL_GetPerformanceCounter() - start) / freq;
+                bool key = e.type == SDL_KEYDOWN && !e.key.repeat, pad = e.type == SDL_CONTROLLERBUTTONDOWN;
+                SDL_Keycode k = key ? e.key.keysym.sym : 0;
+                int b = pad ? e.cbutton.button : -1;
+                if (e.type == SDL_QUIT) running = false;
+                else if (k == SDLK_ESCAPE || k == SDLK_F9 || b == SDL_CONTROLLER_BUTTON_B || b == SDL_CONTROLLER_BUTTON_GUIDE) {
+                    photo = false;
+                    if (!photo_hud) { vdp_opts.hide_hud = false; photo_redraw(); }
+                    photo_hud = true;
+                    shown_title[0] = 0;         /* the title is set again by the next frame */
+                } else if (k == SDLK_h || b == SDL_CONTROLLER_BUTTON_Y) {
+                    photo_hud = !photo_hud;
+                    vdp_opts.hide_hud = !photo_hud;
+                    photo_redraw();
+                    photo_hint(photo_hud ? "HUD shown" : "HUD hidden", tnow);
+                } else if (k == SDLK_RETURN || k == SDLK_KP_ENTER || k == SDLK_F12 || b == SDL_CONTROLLER_BUTTON_A) {
+                    char path[1300];
+                    int iscale = settings.auto_quality && quality_scale ? quality_scale : settings.internal_scale;
+                    if (photo_save(iscale, path, sizeof path)) {
+                        const char *name = strrchr(path, PATH_SEP[0]);
+                        char msg[200];
+                        snprintf(msg, sizeof msg, "Saved to screenshots: %s", name ? name + 1 : path);
+                        photo_hint(msg, tnow);
+                    } else photo_hint("Could not save the picture", tnow);
+                } else if (key || pad) photo_hint(photo_hint_text, tnow);   /* any other key: the hint again */
+                continue;
+            }
             /* The pause menu binding opens the menu; Esc and the Guide button always do too. */
             bool open_menu = input_event_is(IN_MENU, &e) ||
                              (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE && !e.key.repeat) ||
@@ -1161,6 +1270,14 @@ int main(int argc, char **argv) {
                     menu_close();
                     break;
                 case MENU_QUIT: running = false; break;
+                case MENU_PHOTO:
+                    menu_close();
+                    photo = true; photo_hud = true;
+                    photo_hint("PHOTO MODE      H / Y  hide HUD      Enter / A  save picture      Esc / B  back to the game",
+                               (double)(SDL_GetPerformanceCounter() - start) / freq);
+                    SDL_SetWindowTitle(win, "Crusader of Centy - Photo mode");
+                    strcpy(shown_title, "Crusader of Centy - Photo mode");
+                    break;
                 case MENU_NONE: case MENU_PLAY: case MENU_ROM: case MENU_CONTINUE: break;
                 }
             } else if (open_menu) {
@@ -1178,6 +1295,12 @@ int main(int argc, char **argv) {
             else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F11) {
                 settings.fullscreen = !settings.fullscreen;
                 SDL_SetWindowFullscreen(win, settings.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+            } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F9 && !e.key.repeat) {
+                photo = true; photo_hud = true;
+                photo_hint("PHOTO MODE      H / Y  hide HUD      Enter / A  save picture      Esc / B  back to the game",
+                           (double)(SDL_GetPerformanceCounter() - start) / freq);
+                SDL_SetWindowTitle(win, "Crusader of Centy - Photo mode");
+                strcpy(shown_title, "Crusader of Centy - Photo mode");
             } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F2 && !e.key.repeat) {
                 if (savestate_save(settings.state_slot, framebuffer, frame_width(), vdp_screen_height(), FB_W))
                     NOTIFY("Saved to slot %d", settings.state_slot);
@@ -1224,7 +1347,15 @@ int main(int argc, char **argv) {
         /* When pictures take longer than a game frame (a very high internal resolution on a
          * slower PC), the frames owed run before the next picture, up to four: the game keeps
          * its speed and only the picture rate drops. */
-        for (int owed = 0; now >= next && owed < 4; owed++) {
+        static int photo_test_frames;
+        if (photo_test && !photo && ++photo_test_frames == 30) {   /* --photo-test: as F9 then H, then Enter */
+            photo = true; photo_hud = false; vdp_opts.hide_hud = true; photo_redraw();
+            photo_hint("PHOTO MODE      H / Y  hide HUD      Enter / A  save picture      Esc / B  back to the game", 0);
+            char path[1300];
+            printf("photo test: %s\n", photo_save(settings.internal_scale, path, sizeof path) ? path : "not saved");
+        }
+        if (photo) next = now;                  /* frozen: nothing owed when it ends */
+        for (int owed = 0; !photo && now >= next && owed < 4; owed++) {
             Uint64 game_t0 = SDL_GetPerformanceCounter();
             const Uint8 *keys = SDL_GetKeyboardState(NULL);
             bool rewinding = settings.rewind && input_held(IN_REWIND, keys, pads_active());
@@ -1359,6 +1490,7 @@ int main(int argc, char **argv) {
             speed.draw += (double)(SDL_GetPerformanceCounter() - t_upload) * ms;
         }
         if (settings.perf_stats) draw_stats(ren, ww, wh);
+        if (photo) photo_draw_hint(ren, ww, wh, (double)(SDL_GetPerformanceCounter() - start) / freq);
         if (window_test && (double)(SDL_GetPerformanceCounter() - start) / freq >= window_test) {
             uint32_t *shot_px = malloc((size_t)ww * wh * 4);
             if (shot_px && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, shot_px, ww * 4) == 0) png_write(window_test_png, shot_px, ww, wh, ww);
