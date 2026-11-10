@@ -88,7 +88,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Quick-save / quick-load, save anywhere | Done: F2 / F4 save states work anywhere |
 | Difficulty: Original, Easy, Hard, Very hard | Done: PLAY > Difficulty (damage taken 100 / 50 / 150 / 200%) |
 | Infinite health | Done: PLAY > Infinite health |
-| Enemy / boss health bars, damage numbers | Done, to be confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
+| Enemy / boss health bars, damage numbers | Done, confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
 | Autosave at progression points | Map: needs the story-progress flags; until then save states |
 | Movement speed option | Map: the player's movement code |
 | Gameplay statistics, playtime, death counter, defeats | Done: GAME > Stats (`stats.ini`), PLAY > Play timer |
@@ -116,7 +116,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Confirm combat info in a real fight; find the story flags.
+1. Find the story flags (autosave, New Game+); confirm boss fights show bars.
 2. Smooth motion (needs which sprites belong to which object).
 4. World effects that need the camera: vegetation, shadows, day/night.
 5. Companion pages, then the larger modes (New Game+, Boss Rush).

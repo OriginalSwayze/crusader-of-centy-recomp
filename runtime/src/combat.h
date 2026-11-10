@@ -15,6 +15,8 @@
 /* After a game frame. `live` is false while rewinding: nothing is counted or felt then. */
 void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool live);
 void combat_clear(void);                /* after a load, reset or scene change */
+/* --autopilot (tests): the pad for this frame, walking to the nearest enemy and attacking. */
+uint16_t combat_autopilot(int frame, uint16_t attack);
 
 /* Whether combat_draw has anything to draw (numbers, bars or the timer). */
 bool combat_active(const HdPost *p);

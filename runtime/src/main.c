@@ -594,6 +594,7 @@ void console_attach(void);           /* console.c */
  * frozen frame is drawn again from video memory without its sprites. Pictures are saved at
  * the internal resolution with every effect, into screenshots/ next to the game. */
 static bool photo, photo_hud = true, photo_test;
+static uint16_t autopilot;              /* --autopilot: the attack button, 0 off */
 static double photo_hint_at;            /* when the hint bar was last shown (seconds) */
 static char photo_hint_text[200];
 static SDL_Texture *photo_hint_tex;
@@ -781,6 +782,10 @@ int main(int argc, char **argv) {
             sprite_dir = argv[++i];
             settings.internal_scale = atoi(argv[++i]);
         }
+        else if (!strcmp(argv[i], "--autopilot") && i + 1 < argc) {   /* A, B or C: the button it attacks with */
+            char c = argv[++i][0];
+            autopilot = c == 'A' ? PAD_A : c == 'C' ? PAD_C : PAD_B;
+        }
         else if (!strcmp(argv[i], "--window-test") && i + 2 < argc) { window_test = atof(argv[++i]); window_test_png = argv[++i]; }
         else if (!strcmp(argv[i], "--photo-test")) photo_test = true;   /* with --window-test: photo mode, HUD hidden, a picture saved */
         else if (!strcmp(argv[i], "--bench") && i + 1 < argc) bench = atoi(argv[++i]);   /* pictures per game frame, as the window draws them */
@@ -905,6 +910,7 @@ int main(int argc, char **argv) {
         for (int f = 0; f < headless_frames; f++) {
             if (profile_frames && f == headless_frames - profile_frames) pc_profile = calloc(ROM_SIZE / 2, 4);
             pad_state[0] = scripted_pad(f);
+            if (autopilot && f > 30) pad_state[0] = combat_autopilot(f, autopilot);   /* --autopilot: find a fight */
             /* --switch-language F ID: at frame F, change the language as the pause menu does. */
             if (f == switch_at && switch_to) {
                 for (int k = 0; k < SETTINGS_VERSIONS && strcmp(settings.language, switch_to); k++)
@@ -919,6 +925,7 @@ int main(int argc, char **argv) {
             cheats_frame();
             Uint64 g0 = SDL_GetPerformanceCounter();
             machine_run_frame(framebuffer, FB_W);
+            { extern bool combat_headless; combat_headless = true; }
             after_frame(false);
             if (bench) {
                 /* --bench N: the game frame, then N pictures of it as the window draws them

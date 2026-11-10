@@ -58,6 +58,7 @@ static struct {
     uint32_t defeated, dealt, taken, hits_taken, deaths, biggest;
 } total;
 static double session_s;
+bool combat_headless;                   /* test runs: effects as in play, stats untouched */
 int combat_test_burst;                  /* --test-burst N: frames until a test burst */
 bool combat_log;                        /* --combat-log: print every hit and defeat (tests) */
 static uint32_t session_defeated;
@@ -144,6 +145,26 @@ static void add_number(const Slot *s, int value, bool big) {
     n->value = value; n->age = 0; n->big = big;
 }
 
+/* --autopilot BUTTON (tests): walk to the nearest object with health and swing at it when
+ * close, so a fight can be found and checked without playing. */
+uint16_t combat_autopilot(int frame, uint16_t attack) {
+    float px = (float)(int16_t)peek16(0xAC12), py = (float)(int16_t)peek16(0xAC16), best = 1e9f, tx = 0, ty = 0;
+    for (int i = 0; i < SLOTS; i++) {
+        uint32_t a = OBJ_LIST + (uint32_t)i * OBJ_SIZE;
+        uint16_t type = peek16(a), hp = peek16(a + 2);
+        if (!type || !hp || hp >= 0x8000) continue;
+        float x = (float)(int16_t)peek16(a + 4), y = (float)(int16_t)peek16(a + 8), d = fabsf(x - px) + fabsf(y - py);
+        if (d < best) { best = d; tx = x; ty = y; }
+    }
+    if (best > 1e8f) return 0;
+    float dx = tx - px, dy = ty - py;
+    uint16_t dir = fabsf(dx) > fabsf(dy) ? (dx > 0 ? PAD_RIGHT : PAD_LEFT) : (dy > 0 ? PAD_DOWN : PAD_UP);
+    /* wiggle around walls: every 64 frames try the other axis for a while */
+    if ((frame / 32) % 4 == 3) dir = fabsf(dx) > fabsf(dy) ? (dy > 0 ? PAD_DOWN : PAD_UP) : (dx > 0 ? PAD_RIGHT : PAD_LEFT);
+    if (best < 40 && frame % 12 < 4) return dir | attack;
+    return best < 40 && frame % 12 < 8 ? 0 : dir;
+}
+
 void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool live) {
     (void)f; (void)cam_x; (void)cam_y;
     bool play = in_play();
@@ -163,8 +184,10 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         uint32_t a = OBJ_LIST + (uint32_t)i * OBJ_SIZE;
         uint16_t type = peek16(a), hp = peek16(a + 2);
         float x = (float)(int16_t)peek16(a + 4), y = (float)(int16_t)peek16(a + 8);
-        /* Defeated: the update clears the health, then the type, in the same frame. */
-        bool defeated = have_last && s->type && s->hp && !type && !hp;
+        /* Defeated: the update clears the health and then either clears the type or turns
+         * the object into the defeat puff (type 1) in the same frame. Leaving the screen
+         * clears the type but keeps the health, so it is not counted. */
+        bool defeated = have_last && s->type && s->type != 1 && s->hp && !hp && (!type || type == 1);
         if (!defeated && (!have_last || type != s->type)) {
             /* A new object in this slot (or none): its health now is its full health. */
             s->type = type; s->hp = s->max = hp; s->bar_age = -1; s->shown = 1; s->x = x; s->y = y;
@@ -176,7 +199,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
             int d = s->hp - hp;
             if (combat_log) printf("hit: object %06X type %04X health %u -> %u (%d points)%s\n", 0xFF0000 + a, s->type, s->hp, hp, points(d), defeated ? ", defeated" : "");
             if (settings.combat_info) add_number(s, points(d), defeated && d >= s->max);
-            if (live) spark_burst(s->x, s->y, defeated);
+            if (live || combat_headless) spark_burst(s->x, s->y, defeated);
             if (live) {
                 total.dealt += (uint32_t)points(d);
                 if ((uint32_t)points(d) > total.biggest) total.biggest = (uint32_t)points(d);
@@ -188,7 +211,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         float ratio = s->max ? (float)hp / s->max : 0;
         s->shown = s->shown > ratio ? fmaxf(ratio, s->shown - .012f) : ratio;
         s->hp = hp;
-        if (defeated) s->type = s->max = 0;
+        if (defeated) { s->type = type; s->max = 0; }   /* empty, or the puff */
     }
     uint16_t hp_now = peek16(0xFE62);
     if (have_last && live && play && hp_now < player_hp) {
