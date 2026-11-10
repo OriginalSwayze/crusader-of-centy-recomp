@@ -27,6 +27,7 @@ interpreter. It shares its recompiler and runtime with
 | Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
 | Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
+| Water (living streams with reflections and foam), Weather (leaves, rain, snow, fireflies) | done (`runtime/src/hd.c`, `runtime/src/fx.c`): picture only, the game is untouched |
 | Auto-map (GAME > Map): each map fills in as you explore, saved in `automap.bin` | done (`runtime/src/automap.c`) |
 | Widescreen, smooth motion, launcher | not yet: these hook into the game's own code and RAM, which is not mapped for Crusader of Centy yet (`runtime/src/unported.c`) |
 

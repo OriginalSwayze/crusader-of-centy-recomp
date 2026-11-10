@@ -61,12 +61,14 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Item | Status |
 |---|---|
 | Dynamic lighting (torches, caves, glowing objects, glow around the player) | Engine for glow; light *sources* placed in the world need the map and object types: Map |
-| Time-of-day / day-night tint | Build: a colour grade over the world; needs "is this the world map" (Map) to leave menus alone |
-| Enhanced water (ripples, reflections, shoreline, splashes) | Engine: the Beyond Oasis water effect finds water by its colours; Centy's water colours need picking |
-| Grass, flowers, trees swaying; falling leaves; dust; fireflies | Build + Map: needs the camera so particles stay put in the world |
-| Rain, snow, fog, wind, weather transitions | Build + Map: same |
+| Time-of-day / day-night tint | Build: the camera and "in play" are mapped; indoors and outdoors still need telling apart, or houses would darken at night |
+| Enhanced water (ripples, reflections, shoreline foam) | Done: EFFECTS > Water, tuned to Centy's cyan streams; splashes when wading in still to do |
+| Falling leaves, fireflies | Done: EFFECTS > Weather (`runtime/src/fx.c`) |
+| Grass, flowers and trees swaying; dust | Build: needs the plants found in the scenery |
+| Rain, snow | Done: EFFECTS > Weather (rain with an overcast tone and splashes) |
+| Fog, wind, weather changing by area | Build: weather is one setting for the whole game for now |
 | Soft shadows under characters, ambient occlusion | Build + Map: needs which sprites are characters (the object list) |
-| Particles: sword sparks, enemy defeat, impacts, debris | Map: needs the enemy objects and their health |
+| Particles: sword sparks, enemy defeat, impacts, debris | Build: enemy health and defeats are mapped (combat.c), so these can hang off them |
 | Configurable particle density, shadow intensity | follows the above |
 
 ## Stage 4: Animal companions
