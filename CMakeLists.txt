@@ -1,0 +1,129 @@
+cmake_minimum_required(VERSION 3.20)
+project(CrusaderOfCentyRecomp C CXX)
+set(CMAKE_CXX_STANDARD 17)
+
+set(CMAKE_C_STANDARD 11)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# ---- SDL2 (static) ----------------------------------------------------------
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/sdl2 EXCLUDE_FROM_ALL)
+
+# ---- Musashi 68000 interpreter (fallback for code not yet recompiled) --------
+set(MUSASHI_DIR ${CMAKE_SOURCE_DIR}/third_party/musashi)
+set(MUSASHI_GEN ${CMAKE_BINARY_DIR}/musashi_gen)
+add_executable(m68kmake ${MUSASHI_DIR}/m68kmake.c)
+add_custom_command(
+  OUTPUT ${MUSASHI_GEN}/m68kops.c ${MUSASHI_GEN}/m68kops.h
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${MUSASHI_GEN}
+  COMMAND m68kmake ${MUSASHI_GEN} ${MUSASHI_DIR}/m68k_in.c
+  DEPENDS m68kmake ${MUSASHI_DIR}/m68k_in.c)
+add_library(musashi STATIC
+  ${MUSASHI_DIR}/m68kcpu.c
+  ${MUSASHI_DIR}/m68kdasm.c
+  ${MUSASHI_DIR}/softfloat/softfloat.c
+  ${MUSASHI_GEN}/m68kops.c)
+target_include_directories(musashi PUBLIC ${MUSASHI_DIR} ${MUSASHI_GEN} ${CMAKE_SOURCE_DIR}/runtime/src)
+target_compile_definitions(musashi PUBLIC "MUSASHI_CNF=\"musashi_conf.h\"")
+target_compile_options(musashi PRIVATE -w)
+
+# ---- Sound: Z80 core and YM2612 --------------------------------------------------
+add_library(z80core STATIC third_party/z80/z80.c)
+target_include_directories(z80core PUBLIC third_party/z80)
+target_compile_options(z80core PRIVATE -w)
+add_library(ymfm STATIC third_party/ymfm/src/ymfm_opn.cpp third_party/ymfm/src/ymfm_ssg.cpp
+  third_party/ymfm/src/ymfm_adpcm.cpp third_party/ymfm/src/ymfm_misc.cpp)
+target_include_directories(ymfm PUBLIC third_party/ymfm/src)
+target_compile_options(ymfm PRIVATE -w)
+
+# ---- Recompiled game code (generated from the user's ROMs) ------------------------
+# One folder per version in config/versions.json; a version not set up in local.json gets
+# empty files, so the list of sources is always the same.
+set(RECOMP_SOURCES ${CMAKE_SOURCE_DIR}/generated/versions.c)
+file(READ ${CMAKE_SOURCE_DIR}/config/versions.json VERSIONS_JSON)
+string(JSON VERSION_COUNT LENGTH "${VERSIONS_JSON}" versions)
+math(EXPR VERSION_LAST "${VERSION_COUNT} - 1")
+foreach(v RANGE 0 ${VERSION_LAST})
+  string(JSON vid GET "${VERSIONS_JSON}" versions ${v} id)
+  list(APPEND RECOMP_SOURCES ${CMAKE_SOURCE_DIR}/generated/${vid}/version.c)
+  foreach(i RANGE 0 15)
+    if(i LESS 10)
+      set(id "0${i}")
+    else()
+      set(id "${i}")
+    endif()
+    list(APPEND RECOMP_SOURCES ${CMAKE_SOURCE_DIR}/generated/${vid}/recomp_${id}.c)
+  endforeach()
+endforeach()
+file(GLOB RECOMP_TOOLS ${CMAKE_SOURCE_DIR}/tools/*.mjs ${CMAKE_SOURCE_DIR}/tools/lib/*.mjs)
+file(GLOB RECOMP_CONFIG ${CMAKE_SOURCE_DIR}/config/*.json ${CMAKE_SOURCE_DIR}/config/coverage*.txt)
+set(RECOMP_DEPENDS ${RECOMP_TOOLS} ${RECOMP_CONFIG})
+if(EXISTS ${CMAKE_SOURCE_DIR}/local.json)
+  list(APPEND RECOMP_DEPENDS ${CMAKE_SOURCE_DIR}/local.json)      # a ROM added or moved
+endif()
+add_custom_command(
+  OUTPUT ${RECOMP_SOURCES}
+  COMMAND node ${CMAKE_SOURCE_DIR}/tools/recomp.mjs
+  DEPENDS ${RECOMP_DEPENDS}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Recompiling the ROMs to C")
+add_library(recomp STATIC ${RECOMP_SOURCES})
+target_include_directories(recomp PRIVATE runtime/src)
+target_link_libraries(recomp PRIVATE musashi)
+target_compile_options(recomp PRIVATE -O1 -w)
+
+# ---- Runtime ------------------------------------------------------------------
+# WIN32: a windowed program, so no console window opens with the game (main.c attaches
+# to the terminal it was started from, for the test output).
+add_executable(CrusaderOfCenty WIN32
+  runtime/src/main.c
+  runtime/src/console.c
+  runtime/src/machine.c
+  runtime/src/state.c
+  runtime/src/rewind.c
+  runtime/src/png.c
+  runtime/src/text.c
+  runtime/src/launcher_scene.c
+  runtime/src/foil.c
+  runtime/src/ui.c
+  runtime/src/menu.c
+  runtime/src/savestate.c
+  runtime/src/cheats.c
+  runtime/src/unported.c
+  runtime/src/hd.c
+  runtime/src/filter.c
+  runtime/src/input.c
+  runtime/src/pads.c
+  runtime/src/controls.c
+  runtime/src/preview.c
+  runtime/src/gpu.c
+  runtime/src/gpu_d3d11.c
+  runtime/src/texpack.c
+  runtime/src/bus.c
+  runtime/src/vdp.c
+  runtime/src/io.c
+  runtime/src/settings.c
+  runtime/src/z80bus.c
+  runtime/src/sound.cpp)
+target_link_libraries(CrusaderOfCenty PRIVATE recomp musashi z80core ymfm SDL2::SDL2main SDL2::SDL2-static)
+target_compile_options(CrusaderOfCenty PRIVATE -Wall -Wextra -Wno-unused-parameter)
+if(WIN32)
+  target_link_options(CrusaderOfCenty PRIVATE -static)
+  target_link_libraries(CrusaderOfCenty PRIVATE gdi32 comdlg32)
+
+  # The installer (setup/setup.c); the release appends the source to it.
+  add_executable(Setup WIN32
+    setup/setup.c
+    runtime/src/ui.c
+    runtime/src/text.c
+    runtime/src/png.c)
+  target_include_directories(Setup PRIVATE runtime/src)
+  target_link_libraries(Setup PRIVATE SDL2::SDL2main SDL2::SDL2-static)
+  target_compile_options(Setup PRIVATE -Wall -Wextra -Wno-unused-parameter)
+  target_link_options(Setup PRIVATE -static)
+  target_link_libraries(Setup PRIVATE gdi32 comdlg32 bcrypt ole32 shell32 uuid)
+endif()

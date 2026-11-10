@@ -1,0 +1,3 @@
+{
+  "comment": "Code addresses in Crusader of Centy (USA) that the runtime hooks (machine_override); tools/lib/versions.mjs finds each one in the other versions. Code-level patches are in config/patches.json. None yet."
+}

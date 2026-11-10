@@ -1,0 +1,4 @@
+{
+  "comment": "Instruction-level patches applied by the recompiler (tools/lib/codegen.mjs), by USA address: \"replace\": { pc: [the instruction as expected, [C lines run instead]] }. Each reads a runtime variable from runtime/src/recomp_rt.h whose default reproduces the original instruction. None yet.",
+  "replace": {}
+}

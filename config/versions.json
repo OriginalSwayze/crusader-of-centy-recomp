@@ -1,0 +1,8 @@
+{
+  "comment": "The cartridges this builds from. Each is the same game; the translations moved its code, so the runtime's hooks into the USA code (config/addresses.json and config/patches.json) are found in the others by tools/map-versions.mjs. title: as sold, lettered on the launcher's case. region: the console the cartridge expects (us = overseas NTSC, eu = overseas PAL, jp = domestic NTSC; the Korean cartridge expects a domestic one too).",
+  "versions": [
+    { "id": "us", "name": "Crusader of Centy (USA)", "title": "CRUSADER OF CENTY", "language": "English", "region": "us", "sha1": "bf2e8d122f4670865bedbc305ef991ee5f52d647" },
+    { "id": "jp", "name": "Shin Souseiki Ragnacenty (Japan)", "title": "RAGNACENTY", "language": "日本語", "region": "jp", "sha1": "e0df9f3cb64beb3ea921653eccdd45aca6abc0aa" },
+    { "id": "kr", "name": "Ragnacenty (Korea)", "title": "RAGNACENTY", "language": "한국어", "region": "jp", "sha1": "40265aae1b43f004434194038d32ca6b4841707d" }
+  ]
+}
