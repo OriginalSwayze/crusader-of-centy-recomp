@@ -125,7 +125,9 @@ options: `--press`, `--shot F.png`, `--shots EVERY DIR`, `--watch ADDR,...`,
 `--rewind-check K`, `--menu-shot F.png W H` (with `--menu-tab TAB ROW`, `--controls-shot`),
 `--hd-shot F.png SCALE`, `--filter-shot F.png W H MODE`, `--gpu-shot GPU.png CPU.png`,
 `--bench N`, `--pc-profile N`, `--wav F`, `--overclock PERCENT`, `--save-to N`, `--load N`,
-`--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`.
+`--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`, `--difficulty N`,
+`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees),
+`--water 0|1`, `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
 
 ## How it fits together
 

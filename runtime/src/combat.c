@@ -56,6 +56,7 @@ static struct {
     uint32_t defeated, dealt, taken, hits_taken, deaths, biggest;
 } total;
 static double session_s;
+bool combat_log;                        /* --combat-log: print every hit and defeat (tests) */
 static uint32_t session_defeated;
 
 void combat_clear(void) { have_last = false; nnumbers = 0; for (int i = 0; i < SLOTS; i++) slots[i].bar_age = -1; }
@@ -101,6 +102,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         if (hp > s->max) s->max = hp;
         if (hp < s->hp && world) {
             int d = s->hp - hp;
+            if (combat_log) printf("hit: object %06X type %04X health %u -> %u (%d points)%s\n", 0xFF0000 + a, s->type, s->hp, hp, points(d), defeated ? ", defeated" : "");
             if (settings.combat_info) add_number(s, points(d), defeated && d >= s->max);
             if (live) {
                 total.dealt += (uint32_t)points(d);

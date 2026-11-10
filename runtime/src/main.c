@@ -708,6 +708,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--infinite-health")) { settings.cheat_health = true; test_overrides = true; }
         else if (!strcmp(argv[i], "--combat") && i + 1 < argc) { settings.combat_info = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--water") && i + 1 < argc) { settings.water = atoi(argv[++i]) != 0; test_overrides = true; }
+        else if (!strcmp(argv[i], "--combat-log")) { extern bool combat_log; combat_log = true; }
         else if (!strcmp(argv[i], "--play-timer") && i + 1 < argc) { settings.play_timer = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--menu-shot") && i + 3 < argc) {
             /* --menu-shot F.png W H: open the in-game menu over the last frame and render it. */
