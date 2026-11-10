@@ -34,6 +34,7 @@ typedef struct {
     bool cheat_health;                  /* infinite health: no damage, health held full */
     int  combat_info;                   /* 0 off, 1 damage numbers, 2 numbers and enemy health bars (combat.c) */
     int  rumble;                        /* controller rumble on hits: 0 off, 1 light, 2 strong (combat.c) */
+    int  walk_speed;                    /* 0 original, 1 faster (125%), 2 fastest (150%) (player_step) */
     bool autosave;                      /* a save state in the autosave slot when the story moves on (main.c) */
     bool play_timer;                    /* this session's play time in the picture's corner (combat.c) */
     int  fast_speed;                    /* fast-forward while its key is held: 0 2x, 1 3x, 2 4x */
@@ -66,7 +67,7 @@ enum {
     OPT_WIDESCREEN, OPT_WINDOW_ALL,     /* fullscreen or a window size, in one option */
     OPT_INTEGER, OPT_INTERNAL, OPT_SCALER, OPT_FILTER, OPT_SHARPEN, OPT_FLICKER,
     OPT_LIGHTING, OPT_HDR, OPT_PARTICLES, OPT_WATER, OPT_TEXPACK, OPT_DUMP,
-    OPT_DIFFICULTY, OPT_CHEAT_HEALTH, OPT_COMBAT, OPT_RUMBLE, OPT_TIMER, OPT_FAST, OPT_AUTOSAVE,
+    OPT_DIFFICULTY, OPT_CHEAT_HEALTH, OPT_COMBAT, OPT_RUMBLE, OPT_TIMER, OPT_FAST, OPT_AUTOSAVE, OPT_WALK,
     OPT_REWIND_ALL,                     /* rewind off or its buffer size, in one option */
     OPT_OVERCLOCK,
     OPT_VOLUME, OPT_AUDIO,

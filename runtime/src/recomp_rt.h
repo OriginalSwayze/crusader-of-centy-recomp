@@ -32,6 +32,15 @@ static inline uint32_t player_health_change(uint32_t v) {
     return (uint32_t)(-scale_damage(-(int)(int16_t)v)) & 0xFFFFu;
 }
 
+/* The walking speed (settings.walk_speed, percent): the player's step each frame ($9256 X,
+ * $9280 Y, after the velocity and the direction are combined) is scaled while a direction is
+ * held, so scripted walks in scenes keep their timing. */
+extern int patch_speed;
+static inline uint32_t player_step(uint32_t v) {
+    if (patch_speed == 100 || !(pad_state[0] & 0xF)) return v;
+    return (uint32_t)(int32_t)((int64_t)(int32_t)v * patch_speed / 100);
+}
+
 /* Replaces the code at pc with hand-written C (machine.c); NULL restores the generated code. */
 void machine_override(uint32_t pc, RecompBlock fn);
 

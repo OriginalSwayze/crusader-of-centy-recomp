@@ -55,8 +55,8 @@ static const Page pages[PAGES] = {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
         { ITEM_OPTION, "Water", OPT_WATER },
         { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
-    [PAGE_GAMEPLAY] = { "Gameplay", 9, {
-        { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
+    [PAGE_GAMEPLAY] = { "Gameplay", 10, {
+        { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH }, { ITEM_OPTION, "Walking speed", OPT_WALK },
         { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER },
         { ITEM_OPTION, "Autosave", OPT_AUTOSAVE }, { ITEM_OPTION, "Fast-forward", OPT_FAST }, { ITEM_OPTION, "Rewind", OPT_REWIND_ALL },
         { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } } },
@@ -112,6 +112,7 @@ static const char *about(const Item *it) {
     case OPT_CHEAT_HEALTH: return "Hits take nothing, and your apples stay full.";
     case OPT_COMBAT: return "The damage of every hit rises from the enemy as a number; with bars, a health bar shows over an enemy after each hit.";
     case OPT_RUMBLE: return "The controller rumbles when you land a hit, harder for a defeat and when you are hit.";
+    case OPT_WALK: return "How fast you walk while steering: Original, Faster (a quarter more) or Fastest (half again). Scenes keep their own pace.";
     case OPT_AUTOSAVE: return "Saves a state to its own slot each time the story moves on. Load it from the pause menu, or Continue from the launcher.";
     case OPT_TIMER: return "This session's play time in the corner of the picture. The total is under Stats.";
     case OPT_FAST: return "How fast the game runs while the fast-forward key is held (Tab, or RB).";

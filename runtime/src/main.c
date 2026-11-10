@@ -815,6 +815,7 @@ int main(int argc, char **argv) {
             sprite_dir = argv[++i];
             settings.internal_scale = atoi(argv[++i]);
         }
+        else if (!strcmp(argv[i], "--walk-speed") && i + 1 < argc) { settings.walk_speed = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--autosave-test")) autosave_test = true;   /* autosave in test runs too */
         else if (!strcmp(argv[i], "--dump-ram") && i + 2 < argc) {   /* ADDR LEN, hex address in work RAM */
             dump_ram_at = (int)(strtol(argv[++i], NULL, 16) & 0xFFFF);

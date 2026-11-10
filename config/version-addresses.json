@@ -245,6 +245,18 @@
           [
             "{ int s = ws_col(D(6)); setw(&D(0), addw((uint32_t)s & 0xFFFFu, D(0) & 0xFFFFu)); setw(&D(6), (uint32_t)(s < 0 ? s + 32 : s)); }"
           ]
+        ],
+        "00946A": [
+          "add.l\td0,d2",
+          [
+            "D(2) = addl(player_step(D(0)), D(2));"
+          ]
+        ],
+        "009494": [
+          "add.l\td1,d3",
+          [
+            "D(3) = addl(player_step(D(1)), D(3));"
+          ]
         ]
       },
       "notes": {
@@ -499,6 +511,18 @@
           "add.w\td6,d0",
           [
             "{ int s = ws_col(D(6)); setw(&D(0), addw((uint32_t)s & 0xFFFFu, D(0) & 0xFFFFu)); setw(&D(6), (uint32_t)(s < 0 ? s + 32 : s)); }"
+          ]
+        ],
+        "009434": [
+          "add.l\td0,d2",
+          [
+            "D(2) = addl(player_step(D(0)), D(2));"
+          ]
+        ],
+        "00945E": [
+          "add.l\td1,d3",
+          [
+            "D(3) = addl(player_step(D(1)), D(3));"
           ]
         ]
       },

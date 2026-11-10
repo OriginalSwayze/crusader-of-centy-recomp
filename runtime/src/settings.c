@@ -83,6 +83,7 @@ void settings_load(const char *path) {
         else if (!strcmp(k, "rumble")) settings.rumble = atoi(v);
         else if (!strcmp(k, "play_timer")) settings.play_timer = parse_bool(v);
         else if (!strcmp(k, "autosave")) settings.autosave = parse_bool(v);
+        else if (!strcmp(k, "walk_speed")) settings.walk_speed = atoi(v);
         else if (!strcmp(k, "fast_speed")) settings.fast_speed = atoi(v);
         else if (!strcmp(k, "rewind")) settings.rewind = parse_bool(v);
         else if (!strcmp(k, "rewind_mb")) settings.rewind_mb = atoi(v);
@@ -116,6 +117,7 @@ void settings_load(const char *path) {
     settings.particles = clampi(settings.particles, 0, 2, 0);
     settings.difficulty = clampi(settings.difficulty, 0, 3, 0);
     settings.combat_info = clampi(settings.combat_info, 0, 2, 0);
+    settings.walk_speed = clampi(settings.walk_speed, 0, 2, 0);
     settings.rumble = clampi(settings.rumble, 0, 2, 0);
     settings.fast_speed = clampi(settings.fast_speed, 0, 2, 0);
     settings.rewind_mb = clampi(settings.rewind_mb, 8, 2048, 64);
@@ -182,6 +184,7 @@ void settings_save(const char *path) {
     fprintf(f, "rumble=%d\n", settings.rumble);
     fprintf(f, "play_timer=%d\n", settings.play_timer);
     fprintf(f, "autosave=%d\n", settings.autosave);
+    fprintf(f, "walk_speed=%d\n", settings.walk_speed);
     fprintf(f, "fast_speed=%d\n", settings.fast_speed);
     fprintf(f, "rewind=%d\n", settings.rewind);
     fprintf(f, "rewind_mb=%d\n", settings.rewind_mb);
@@ -242,6 +245,7 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_RUMBLE:     snprintf(out, n, "%s", settings.rumble == 2 ? "Strong" : settings.rumble ? "Light" : "Off"); break;
     case OPT_TIMER:      snprintf(out, n, "%s", on_off(settings.play_timer)); break;
     case OPT_AUTOSAVE:   snprintf(out, n, "%s", on_off(settings.autosave)); break;
+    case OPT_WALK:       snprintf(out, n, "%s", settings.walk_speed == 2 ? "Fastest" : settings.walk_speed ? "Faster" : "Original"); break;
     case OPT_FAST:       snprintf(out, n, "%d\xC3\x97", settings.fast_speed + 2); break;
     case OPT_REWIND_ALL:
         if (!settings.rewind) snprintf(out, n, "Off");
@@ -327,6 +331,7 @@ void settings_option_change(int id, int dir) {
     case OPT_RUMBLE:     settings.rumble = settings_cycle(settings.rumble, 3, dir); break;
     case OPT_TIMER:      settings.play_timer = !settings.play_timer; break;
     case OPT_AUTOSAVE:   settings.autosave = !settings.autosave; break;
+    case OPT_WALK:       settings.walk_speed = settings_cycle(settings.walk_speed, 3, dir); break;
     case OPT_FAST:       settings.fast_speed = settings_cycle(settings.fast_speed, 3, dir); break;
     case OPT_REWIND_ALL: {
         int cur = 0;                    /* 0 = off, 1.. = rewind_sizes */
@@ -391,6 +396,7 @@ void settings_preset_original(void) {
     settings.integer_scale = false;
     settings.difficulty = 0;
     settings.cheat_health = false;
+    settings.walk_speed = 0;
     settings.texture_pack[0] = 0;
 }
 

@@ -19,6 +19,7 @@ static int user_count;
 static char user_spec[sizeof settings.cheat_codes];
 
 int patch_damage = 100;
+int patch_speed = 100;
 static int damage_carry;                /* hundredths of a point of damage owed by earlier hits */
 
 int scale_damage(int damage) {
@@ -62,6 +63,8 @@ static const int difficulty_damage[4] = { 100, 50, 150, 200 };
 void cheats_frame(void) {
     int d = settings.difficulty >= 0 && settings.difficulty < 4 ? settings.difficulty : 0;
     patch_damage = settings.cheat_health ? 0 : difficulty_damage[d];
+    static const int walk[3] = { 100, 125, 150 };
+    patch_speed = walk[settings.walk_speed >= 0 && settings.walk_speed < 3 ? settings.walk_speed : 0];
     if (patch_damage == 100) damage_carry = 0;
     if (settings.cheat_health) {
         uint16_t max = (uint16_t)(bus.ram[0xFE60] << 8 | bus.ram[0xFE61]);

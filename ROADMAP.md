@@ -91,7 +91,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Infinite health | Done: PLAY > Infinite health |
 | Enemy / boss health bars, damage numbers | Done, confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
 | Autosave at progression points | Done: GAMEPLAY > Autosave (on by default): a save state in its own slot two seconds after a story flag is newly set; Paused > Load autosave, and the launcher's Continue offers it when it is the newest |
-| Movement speed option | Map: the player's movement code |
+| Movement speed option | Done: GAMEPLAY > Walking speed (Original, Faster 125%, Fastest 150%): the player's step each frame (`$9256` X, `$9280` Y) is scaled while a direction is held, so scenes keep their pace; walls still stop you |
 | Gameplay statistics, playtime, death counter, defeats | Done: GAME > Stats (`stats.ini`), PLAY > Play timer |
 | Improved weapon switching | Hard: the game's inventory code |
 | Separate music / sound effects / ambience volume | Hard: the sound driver mixes music and effects on one chip; needs the driver's channel use mapped |
