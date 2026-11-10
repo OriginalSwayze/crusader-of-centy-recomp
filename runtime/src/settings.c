@@ -99,7 +99,12 @@ void settings_load(const char *path) {
     fclose(f);
     settings.widescreen = clampi(settings.widescreen, 0, 2, 0);
     settings.window_scale = clampi(settings.window_scale, 1, 10, 4);
-    if (settings.internal_scale < 1 || settings.internal_scale > 6 || settings.internal_scale == 5) settings.internal_scale = 1;
+    {
+        static const int ok[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
+        bool fine = false;
+        for (int k = 0; k < 8; k++) fine |= settings.internal_scale == ok[k];
+        if (!fine) settings.internal_scale = 1;
+    }
     settings.scaler = clampi(settings.scaler, 0, 2, 0);
     settings.filter = clampi(settings.filter, 0, FILTER_COUNT - 1, FILTER_OFF);
     settings.sharpen = clampi(settings.sharpen, 0, 3, 0);
@@ -209,8 +214,7 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_INTEGER:    snprintf(out, n, "%s", on_off(settings.integer_scale)); break;
     case OPT_INTERNAL:
         if (settings.internal_scale <= 1) snprintf(out, n, "Native");
-        else if (settings.internal_scale == 6) snprintf(out, n, "6\xC3\x97 (4K)");
-        else snprintf(out, n, "%d\xC3\x97", settings.internal_scale);
+        else snprintf(out, n, "%d\xC3\x97  (%d lines)", settings.internal_scale, 224 * settings.internal_scale);
         break;
     case OPT_SCALER:     snprintf(out, n, "%s", settings.scaler == 2 ? "Sharp" : settings.scaler ? "Smooth (xBR)" : "Edge"); break;
     case OPT_FILTER:     snprintf(out, n, "%s", filter_names[settings.filter]); break;
@@ -285,11 +289,11 @@ void settings_option_change(int id, int dir) {
     }
     case OPT_WIDESCREEN: settings.widescreen = settings_cycle(settings.widescreen, 3, dir); break;
     case OPT_INTEGER:    settings.integer_scale = !settings.integer_scale; break;
-    case OPT_INTERNAL: {                /* Native, 2x, 3x, 4x, 6x */
-        static const int scales[5] = { 1, 2, 3, 4, 6 };
+    case OPT_INTERNAL: {                /* Native, 2x, 3x, 4x, 6x, 8x, 12x, 16x */
+        static const int scales[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
         int at = 0;
-        for (int k = 0; k < 5; k++) if (scales[k] == settings.internal_scale) at = k;
-        settings.internal_scale = scales[settings_cycle(at, 5, dir)];
+        for (int k = 0; k < 8; k++) if (scales[k] == settings.internal_scale) at = k;
+        settings.internal_scale = scales[settings_cycle(at, 8, dir)];
         break;
     }
     case OPT_SCALER:     settings.scaler = settings_cycle(settings.scaler, 3, dir); break;

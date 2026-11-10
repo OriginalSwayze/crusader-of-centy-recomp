@@ -202,7 +202,7 @@ static void window_size(int *w, int *h) {
 }
 
 /* ---- Speed: auto quality and the stats panel ------------------------------------------- */
-static const int quality_steps[5] = { 1, 2, 3, 4, 6 };
+static const int quality_steps[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
 static int quality_scale;               /* auto quality's internal resolution (0: the setting's) */
 
 static struct {
@@ -220,9 +220,9 @@ static struct {
 /* The step of quality_steps below (dir -1) or above (+1) `scale`. */
 static int quality_step(int scale, int dir) {
     int k = 0;
-    while (k < 4 && quality_steps[k + 1] <= scale) k++;
+    while (k < 7 && quality_steps[k + 1] <= scale) k++;
     k += dir;
-    return quality_steps[k < 0 ? 0 : k > 4 ? 4 : k];
+    return quality_steps[k < 0 ? 0 : k > 7 ? 7 : k];
 }
 
 /* Called after each picture with the time its steps took (ms). */
@@ -727,6 +727,8 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--controls-shot")) controls_shot = true;   /* with --menu-shot: the Controls page */
         else if (!strcmp(argv[i], "--no-launcher")) no_launcher = true;
+        else if (!strcmp(argv[i], "--perf-stats")) { settings.perf_stats = true; test_overrides = true; }
+        else if (!strcmp(argv[i], "--internal") && i + 1 < argc) { settings.internal_scale = atoi(argv[++i]); test_overrides = true; }
         else if (!strcmp(argv[i], "--launcher-test") && i + 1 < argc) launcher_autoplay = atoi(argv[++i]);   /* with --window-test */
         else if (!strcmp(argv[i], "--launcher-shot") && i + 6 < argc) {
             /* --launcher-shot F.png W H TAB ROW T: the launcher at W x H with tab TAB, row ROW
@@ -1079,7 +1081,10 @@ int main(int argc, char **argv) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, apis[k]);
         ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
         if (!ren) continue;
-        gpu_effects_running = settings.gpu_effects && gpu_fx_init(ren);
+        /* The card's effects are made ready whenever it can run them: the setting asks for
+         * them always, and from 6x internal resolution up they are used anyway (the CPU's
+         * effects cost 15 ms a picture at 16x). */
+        gpu_effects_running = gpu_fx_init(ren);
         if (gpu_effects_running || !settings.gpu_effects || !apis[k + 1]) break;
         SDL_DestroyRenderer(ren);       /* this one cannot run them: try the next */
         ren = NULL;
@@ -1214,7 +1219,10 @@ int main(int argc, char **argv) {
          * the moment it is now, so motion is even at 60, 120, 144 Hz and up. */
         Uint64 now = SDL_GetPerformanceCounter();
         const Uint64 frame_ticks = (Uint64)(machine_frame_s() * freq);
-        if (now >= next) {
+        /* When pictures take longer than a game frame (a very high internal resolution on a
+         * slower PC), the frames owed run before the next picture, up to four: the game keeps
+         * its speed and only the picture rate drops. */
+        for (int owed = 0; now >= next && owed < 4; owed++) {
             Uint64 game_t0 = SDL_GetPerformanceCounter();
             const Uint8 *keys = SDL_GetKeyboardState(NULL);
             bool rewinding = settings.rewind && input_held(IN_REWIND, keys, pads_active());
@@ -1283,13 +1291,23 @@ int main(int argc, char **argv) {
         hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
         Uint64 t_start = SDL_GetPerformanceCounter(), t_layers = t_start, t_effects = t_start, t_upload = t_start;
         bool on_gpu = false;
-        if (hd) {
+        /* The picture only changes with a new game frame (60 a second), unless the water
+         * animates it: on faster displays the finished picture is shown again as it is,
+         * instead of being built, finished and uploaded again for every refresh. */
+        static unsigned built_serial;
+        static int built_scale, built_filter, built_w, built_h;
+        static SDL_Texture *built_tex;
+        bool reuse = hd && built_tex && built_serial == hd_serial && built_scale == iscale && !settings.water &&
+                     built_filter == settings.filter && built_w == hd_frame.w && built_h == hd_frame.h && !menu_is_open();
+        if (hd && reuse) {
+            filter_draw(ren, built_tex, NULL, dst, frame_width(), vdp_screen_height(), settings.filter);
+        } else if (hd) {
             hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
             hd_compose(iscale);
             t_layers = SDL_GetPerformanceCounter();
             HdPost post = finishing(hd_w / frame_width(), (float)(SDL_GetPerformanceCounter() - start) / freq);
             SDL_Texture *shown = NULL;
-            if (gpu_effects_running && settings.gpu_effects && (post.lighting || post.hdr || post.sharpen)) {
+            if (gpu_effects_running && (settings.gpu_effects || iscale >= 6) && (post.lighting || post.hdr || post.sharpen)) {
                 /* The card grades, lights and sharpens; damage numbers and bars go on first. */
                 if (post.world && combat_active(&post)) combat_draw(hd_px, hd_w, hd_h, &post);
                 shown = gpu_fx_finish(ren, hd_px, hd_w, hd_h, hd_w, &post, iscale > 1);
@@ -1317,6 +1335,8 @@ int main(int argc, char **argv) {
                 shown = hd_tex[hd_tex_now];
             }
             filter_draw(ren, shown, NULL, dst, frame_width(), vdp_screen_height(), settings.filter);
+            built_tex = shown; built_serial = hd_serial; built_scale = iscale; built_filter = settings.filter;
+            built_w = hd_frame.w; built_h = hd_frame.h;
         } else {
             SDL_Rect src = { 0, 0, frame_width(), vdp_screen_height() };
             HdPost post = finishing(1, (float)(SDL_GetPerformanceCounter() - start) / freq);

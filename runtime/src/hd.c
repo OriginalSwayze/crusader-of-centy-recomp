@@ -54,9 +54,9 @@ static inline bool dithered(const Dither *d, int x, int y) {
     return B == H && B != E && (SRC(x, y - 2) == E || SRC(x, y + 2) == E);
 }
 
-static void scale2x(const uint32_t *src, int pitch, int w, int h, uint32_t *dst, const Dither *dt) {
+static void scale2x(const uint32_t *src, int pitch, int w, int h, uint32_t *dst, const Dither *dt, int y0, int y1) {
     int dw = w * 2;
-    for (int y = 0; y < h; y++) {
+    for (int y = y0; y < y1; y++) {
         uint32_t *d0 = dst + (size_t)(y * 2) * dw, *d1 = d0 + dw;
         for (int x = 0; x < w; x++) {
             uint32_t B = SRC(x, y - 1), D = SRC(x - 1, y), E = src[(size_t)y * pitch + x], F = SRC(x + 1, y), H = SRC(x, y + 1);
@@ -72,9 +72,9 @@ static void scale2x(const uint32_t *src, int pitch, int w, int h, uint32_t *dst,
     }
 }
 
-static void scale3x(const uint32_t *src, int pitch, int w, int h, uint32_t *dst, const Dither *dt) {
+static void scale3x(const uint32_t *src, int pitch, int w, int h, uint32_t *dst, const Dither *dt, int y0, int y1) {
     int dw = w * 3;
-    for (int y = 0; y < h; y++) {
+    for (int y = y0; y < y1; y++) {
         uint32_t *d0 = dst + (size_t)(y * 3) * dw, *d1 = d0 + dw, *d2 = d1 + dw;
         for (int x = 0; x < w; x++) {
             uint32_t A = SRC(x - 1, y - 1), B = SRC(x, y - 1), C = SRC(x + 1, y - 1);
@@ -159,31 +159,56 @@ static void xbr_rows(const uint32_t *src, int pitch, int w, int h, int n, uint32
         }
 }
 
-static void xbr(const uint32_t *src, int pitch, int w, int h, int n, uint32_t *dst, const Dither *dt) { xbr_rows(src, pitch, w, h, n, dst, 0, h, dt); }
 
 /* Scales w x h pixels (row pitch `pitch`) into dst (w*scale wide, no padding). */
 /* Sharp: every pixel a plain block, the pixel art exactly as drawn. */
-static void blocks(const uint32_t *src, int pitch, int w, int h, int n, uint32_t *dst) {
+static void blocks(const uint32_t *src, int pitch, int w, int h, int n, uint32_t *dst, int y0, int y1) {
+    (void)h;
     int dw = w * n;
-    for (int y = 0; y < h; y++) {
+    for (int y = y0; y < y1; y++) {
         uint32_t *row = dst + (size_t)(y * n) * dw;
         for (int x = 0; x < w; x++) for (int i = 0; i < n; i++) row[x * n + i] = src[(size_t)y * pitch + x];
         for (int j = 1; j < n; j++) memcpy(row + (size_t)j * dw, row, (size_t)dw * 4);
     }
 }
 
+/* Any scale made of 2s and 3s (2, 3, 4, 6, 8, 12, 16) is a chain of passes: the 3s first,
+ * then the 2s, each pass rounding the edges of the one before (Edge and Smooth); Sharp is a
+ * single pass of plain blocks. scale_passes() fills the factors and returns their count. */
+static int scale_passes(int scale, int f[8]) {
+    int n = 0;
+    if (hd_scaler == 2) { f[n++] = scale; return n; }
+    while (scale % 3 == 0 && n < 8) { f[n++] = 3; scale /= 3; }
+    if (hd_scaler == 1) while (scale % 4 == 0 && n < 8) { f[n++] = 4; scale /= 4; }   /* xBR does 4x in one pass, as it always has */
+    while (scale % 2 == 0 && n < 8) { f[n++] = 2; scale /= 2; }
+    if (scale > 1 && n < 8) f[n++] = scale;    /* not 2s and 3s: the rest as blocks */
+    return n;
+}
+
+/* One pass over rows y0..y1 of its source: n times, with this scaler; dt is the 1x layer
+ * (k: how many times the source is bigger) for the dither test. */
+static void scale_pass(const uint32_t *src, int pitch, int w, int h, int n, uint32_t *dst, const Dither *dt, int y0, int y1) {
+    if (hd_scaler == 2 || n > 4 || (n == 4 && hd_scaler == 0)) blocks(src, pitch, w, h, n, dst, y0, y1);
+    else if (hd_scaler == 1) xbr_rows(src, pitch, w, h, n, dst, y0, y1, dt);
+    else if (n == 3) scale3x(src, pitch, w, h, dst, dt, y0, y1);
+    else scale2x(src, pitch, w, h, dst, dt, y0, y1);
+}
+
+/* The whole chain on one thread (for small pictures: each sprite). dst and tmp each hold the
+ * final size; the passes go back and forth between them and end in dst. */
 static void scale_any(const uint32_t *src, int pitch, int w, int h, int scale, uint32_t *dst, uint32_t *tmp) {
-    Dither d1 = { src, pitch, w, h, 1 }, d2 = { src, pitch, w, h, 2 }, d3 = { src, pitch, w, h, 3 };
-    if (scale == 1) for (int y = 0; y < h; y++) memcpy(dst + (size_t)y * w, src + (size_t)y * pitch, (size_t)w * 4);
-    else if (hd_scaler == 2) blocks(src, pitch, w, h, scale, dst);
-    else if (hd_scaler == 1) {
-        if (scale == 6) { xbr(src, pitch, w, h, 3, tmp, &d1); xbr(tmp, w * 3, w * 3, h * 3, 2, dst, &d3); }
-        else xbr(src, pitch, w, h, scale, dst, &d1);
+    if (scale == 1) { for (int y = 0; y < h; y++) memcpy(dst + (size_t)y * w, src + (size_t)y * pitch, (size_t)w * 4); return; }
+    int f[8], np = scale_passes(scale, f), k = 1;
+    const uint32_t *in = src;
+    int in_pitch = pitch;
+    for (int p = 0; p < np; p++) {
+        uint32_t *out = (np - p) % 2 ? dst : tmp;
+        Dither dt = { src, pitch, w, h, k };
+        scale_pass(in, in_pitch, w * k, h * k, f[p], out, &dt, 0, h * k);
+        k *= f[p];
+        in = out;
+        in_pitch = w * k;
     }
-    else if (scale == 6) { scale3x(src, pitch, w, h, tmp, &d1); scale2x(tmp, w * 3, w * 3, h * 3, dst, &d3); }
-    else if (scale == 3) scale3x(src, pitch, w, h, dst, &d1);
-    else if (scale == 4) { scale2x(src, pitch, w, h, tmp, &d1); scale2x(tmp, w * 2, w * 2, h * 2, dst, &d2); }
-    else scale2x(src, pitch, w, h, dst, &d1);
 }
 
 /* ---- Motion ----------------------------------------------------------------------- *
@@ -214,8 +239,9 @@ static uint32_t *sprite_layer;          /* sprites drawn at their in-between pos
 
 /* Each sprite of hd_frame scaled once per frame, with a transparent border of one pixel
  * so the scaler can round its outer edges. */
-#define SPR_PAD_MAX ((32 + 2) * HD_MAX_SCALE)
-static uint32_t sprite_scaled[80][SPR_PAD_MAX * SPR_PAD_MAX];
+static size_t spr_cells;                /* pixels per sprite buffer: ((32 + 2) * scale)^2 */
+static uint32_t *sprite_scaled;         /* 80 of them */
+#define SPRITE_SCALED(i) (sprite_scaled + (size_t)(i) * spr_cells)
 
 /* ---- Texture packs --------------------------------------------------------------------- *
  * With a pack loaded, the replacement colour of every picture pixel (texpack_texel: 0 none,
@@ -227,19 +253,33 @@ static uint32_t sprite_scaled[80][SPR_PAD_MAX * SPR_PAD_MAX];
 bool hd_texpack;
 static uint32_t *tex_layer[3];          /* plane A, plane B, sprites (whole layer) */
 static uint32_t *sprite_tex_layer;      /* sprites at their in-between positions */
-static uint32_t (*sprite_tex)[SPR_PAD_MAX * SPR_PAD_MAX];   /* [80], with sprite_scaled */
+static uint32_t *sprite_tex;             /* 80 of spr_cells, with sprite_scaled */
+#define SPRITE_TEX(i) (sprite_tex + (size_t)(i) * spr_cells)
 static size_t tex_cap;
 
 static bool ensure_tex(size_t need) {
     if (need <= tex_cap) return true;
     for (int k = 0; k < 3; k++) { free(tex_layer[k]); tex_layer[k] = malloc(need * 4); }
     free(sprite_tex_layer); sprite_tex_layer = malloc(need * 4);
-    if (!sprite_tex) sprite_tex = malloc(sizeof *sprite_tex * 80);
+    if (!sprite_tex && spr_cells) sprite_tex = malloc(spr_cells * 4 * 80);
     bool ok = tex_layer[0] && tex_layer[1] && tex_layer[2] && sprite_tex_layer && sprite_tex;
     tex_cap = ok ? need : 0;
     return ok;
 }
-static uint32_t sprite_tmp[SPR_PAD_MAX * SPR_PAD_MAX];
+static uint32_t *sprite_tmp;
+
+/* The sprite buffers for this scale (they grow, never shrink). */
+static bool ensure_sprites(int scale) {
+    size_t need = (size_t)(34 * scale) * (size_t)(34 * scale);
+    if (need <= spr_cells && sprite_scaled) return true;
+    free(sprite_scaled); free(sprite_tmp); free(sprite_tex);
+    sprite_scaled = malloc(need * 4 * 80);
+    sprite_tmp = malloc(need * 4);
+    sprite_tex = NULL;                  /* made again by ensure_tex() with packs */
+    tex_cap = 0;
+    spr_cells = sprite_scaled && sprite_tmp ? need : 0;
+    return spr_cells != 0;
+}
 
 static void scroll_of(Scroll *m, const HdFrame *f) {
     m->w = f->w; m->h = f->h;
@@ -306,7 +346,7 @@ static bool ensure(int scale) {
  * pictures stall for 10-25 ms.) */
 typedef struct { int (*fn)(void *); void *arg; } Job;
 
-#define MAX_WORKERS 24
+#define MAX_WORKERS 64
 
 static Job pool_job[MAX_WORKERS];
 static SDL_sem *pool_go[MAX_WORKERS], *pool_done;
@@ -337,6 +377,14 @@ static void run_jobs(Job *jobs, int n) {
     jobs[0].fn(jobs[0].arg);
     for (int k = pool_size + 1; k < n; k++) jobs[k].fn(jobs[k].arg);   /* no worker: do it here */
     for (int k = 0; k < sent; k++) SDL_SemWait(pool_done);
+}
+
+/* How many threads a job over `pixels` output pixels is worth: waking a thread costs about
+ * as much as it does to a few hundred thousand pixels, so small pictures use few. */
+static int workers(void);
+static int workers_for(size_t pixels) {
+    int n = (int)(pixels / 250000) + 1, max = workers();
+    return n > max ? max : n;
 }
 
 /* Rows in small bands that each thread takes as it becomes free: on a CPU with fast and
@@ -374,39 +422,40 @@ static int workers(void) {
     return n;
 }
 
-typedef struct { const uint32_t *src; int scale; uint32_t *dst, *tmp; } ScaleJob;
+typedef struct { const uint32_t *src; int scale; uint32_t *dst, *tmp; } LayerJob;
 
-static int scale_job(void *arg) {
-    ScaleJob *j = arg;
+static int layer_job(void *arg) {
+    LayerJob *j = arg;
     scale_any(j->src, HD_MAX_W, hd_frame.w, hd_frame.h, j->scale, j->dst, j->tmp);
     return 0;
 }
 
-static int scaled_with = -1;            /* hd_scaler the cached layers were made with */
+typedef struct { const uint32_t *src; uint32_t *dst; int pitch, w, h, n, y0, y1; Dither dt; } PassJob;
 
-typedef struct { const uint32_t *src; uint32_t *dst; int pitch, w, h, scale, y0, y1; Dither dt; } XbrJob;
-
-static int xbr_job(void *arg) {
-    XbrJob *j = arg;
-    xbr_rows(j->src, j->pitch, j->w, j->h, j->scale, j->dst, j->y0, j->y1, &j->dt);
+static int pass_job(void *arg) {
+    PassJob *j = arg;
+    scale_pass(j->src, j->pitch, j->w, j->h, j->n, j->dst, &j->dt, j->y0, j->y1);
     return 0;
 }
 
-/* One xBR pass over the three layers, every layer in bands over all cores. */
-static void xbr_pass(const uint32_t *const src[3], int pitch, int w, int h, int n, uint32_t *const dst[3],
-                     const uint32_t *const orig[3], int k) {
-    XbrJob xj[3 * MAX_WORKERS];
+/* One pass over the three layers, each layer in bands over all cores. */
+static void layers_pass(const uint32_t *const src[3], int pitch, int w, int h, int n, uint32_t *const dst[3],
+                        const uint32_t *const orig[3], int k) {
+    PassJob pj[3 * MAX_WORKERS];
     Job jobs[3 * MAX_WORKERS];
-    int per = (workers() + 2) / 3, count = 0;
+    int per = (workers_for((size_t)w * n * h * n * 3) + 2) / 3, count = 0;
     if (per < 1) per = 1;
+    if (per > h) per = h;
     for (int l = 0; l < 3; l++)
         for (int b = 0; b < per; b++, count++) {
-            xj[count] = (XbrJob){ src[l], dst[l], pitch, w, h, n, h * b / per, h * (b + 1) / per,
-                                  { orig[l], HD_MAX_W, hd_frame.w, hd_frame.h, k } };
-            jobs[count] = (Job){ xbr_job, &xj[count] };
+            pj[count] = (PassJob){ src[l], dst[l], pitch, w, h, n, h * b / per, h * (b + 1) / per,
+                                   { orig[l], HD_MAX_W, hd_frame.w, hd_frame.h, k } };
+            jobs[count] = (Job){ pass_job, &pj[count] };
         }
     for (int at = 0; at < count; at += MAX_WORKERS) run_jobs(jobs + at, count - at > MAX_WORKERS ? MAX_WORKERS : count - at);
 }
+
+static int scaled_with = -1;            /* hd_scaler the cached layers were made with */
 
 static int tex_scale;
 
@@ -439,29 +488,32 @@ static void make_tex_layers(int scale) {
 static void scale_planes(int scale) {
     if (scaled_gen == hd_serial && scaled_scale == scale && scaled_with == hd_scaler) { make_tex_layers(scale); return; }
     scaled_with = hd_scaler;
-    if (hd_scaler == 1 && scale > 1) {  /* the heavier scaler: every layer in bands over all cores */
-        const uint32_t *layers[3] = { &hd_frame.a[0][0], &hd_frame.b[0][0], &hd_frame.s[0][0] };
-        int w = hd_frame.w, h = hd_frame.h;
-        if (scale == 6) {               /* 3x, then 2x of that */
-            const uint32_t *mid[3] = { temp[0], temp[1], temp[2] };
-            xbr_pass(layers, HD_MAX_W, w, h, 3, temp, layers, 1);
-            xbr_pass(mid, w * 3, w * 3, h * 3, 2, scaled, layers, 3);
-        } else {
-            xbr_pass(layers, HD_MAX_W, w, h, scale, scaled, layers, 1);
+    /* Every scaler, every pass, each layer in bands over all cores (Edge used to take one
+     * core per layer: three of them). The passes go back and forth between temp and scaled
+     * and end in scaled. */
+    const uint32_t *layers[3] = { &hd_frame.a[0][0], &hd_frame.b[0][0], &hd_frame.s[0][0] };
+    int w = hd_frame.w, h = hd_frame.h;
+    if (scale == 1) {
+        for (int l = 0; l < 3; l++)
+            for (int y = 0; y < h; y++) memcpy(scaled[l] + (size_t)y * w, layers[l] + (size_t)y * HD_MAX_W, (size_t)w * 4);
+    } else if ((size_t)w * scale * (size_t)h * scale < 2500000) {
+        /* Small pictures: a thread per layer doing all its passes (waking more threads for
+         * every pass would cost more than it saves). */
+        Job jobs[3];
+        LayerJob lj[3];
+        for (int l = 0; l < 3; l++) { lj[l] = (LayerJob){ layers[l], scale, scaled[l], temp[l] }; jobs[l] = (Job){ layer_job, &lj[l] }; }
+        run_jobs(jobs, 3);
+    } else {
+        int f[8], np = scale_passes(scale, f), k = 1, pitch = HD_MAX_W;
+        const uint32_t *in[3] = { layers[0], layers[1], layers[2] };
+        for (int p = 0; p < np; p++) {
+            uint32_t *const *out = (np - p) % 2 ? scaled : temp;
+            layers_pass(in, pitch, w * k, h * k, f[p], out, layers, k);
+            k *= f[p];
+            for (int l = 0; l < 3; l++) in[l] = out[l];
+            pitch = w * k;
         }
-        scaled_gen = hd_serial;
-        scaled_scale = scale;
-        make_tex_layers(scale);
-        return;
     }
-    ScaleJob sj[3] = {
-        { &hd_frame.a[0][0], scale, scaled[0], temp[0] },
-        { &hd_frame.b[0][0], scale, scaled[1], temp[1] },
-        { &hd_frame.s[0][0], scale, scaled[2], temp[2] },
-    };
-    Job jobs[3] = { { scale_job, &sj[0] }, { scale_job, &sj[1] }, { scale_job, &sj[2] } };
-    run_jobs(jobs, workers() >= 3 ? 3 : 1);
-    if (workers() < 3) { scale_job(&sj[1]); scale_job(&sj[2]); }
     scaled_gen = hd_serial;
     scaled_scale = scale;
     make_tex_layers(scale);
@@ -1285,17 +1337,23 @@ const uint32_t *hd_post(const uint32_t *src, int w, int h, int pitch, const HdPo
 
 static int clamp_scale(int scale) { return scale < 1 ? 1 : scale > HD_MAX_SCALE ? HD_MAX_SCALE : scale; }
 
+static double ms_since(Uint64 *t0);
 void hd_compose(int scale) {
     scale = clamp_scale(scale);
     if (!ensure(scale)) return;
+    Uint64 t0 = SDL_GetPerformanceCounter();
     scale_planes(scale);
+    hd_ms[0] = ms_since(&t0);
+    hd_ms[1] = hd_ms[2] = 0;
     compose_rows(scale, scaled[2], NULL, NULL, NULL, NULL);
+    hd_ms[3] = ms_since(&t0);
 }
 
 /* Signed difference of two scroll values that wrap at 1024. */
 static int scroll_delta(int now, int was) { return ((now - was + 512) & 1023) - 512; }
 
 static void scale_sprites(int scale) {
+    if (!ensure_sprites(scale)) return;
     static int made_with = -1;
     static bool made_tex;
     if (sprites_gen == hd_serial && sprites_scale == scale && made_with == hd_scaler && made_tex == hd_texpack) return;
@@ -1308,13 +1366,13 @@ static void scale_sprites(int scale) {
         int pw = c->w + 2, ph = c->h + 2;
         memset(padded, 0, sizeof padded);
         for (int y = 0; y < c->h; y++) memcpy(padded + (y + 1) * pw + 1, c->px + y * 32, (size_t)c->w * 4);
-        scale_any(padded, pw, pw, ph, scale, sprite_scaled[i], sprite_tmp);
+        scale_any(padded, pw, pw, ph, scale, SPRITE_SCALED(i), sprite_tmp);
         if (hd_texpack && sprite_tex)
             for (int yy = 0; yy < ph * scale; yy++)
                 for (int xx = 0; xx < pw * scale; xx++) {
                     int nx = xx / scale - 1, ny = yy / scale - 1;
                     uint32_t ref = nx >= 0 && ny >= 0 && nx < c->w && ny < c->h ? c->ref[ny * 32 + nx] : 0;
-                    sprite_tex[i][yy * pw * scale + xx] = texpack_texel(ref, xx % scale, yy % scale, scale);
+                    SPRITE_TEX(i)[yy * pw * scale + xx] = texpack_texel(ref, xx % scale, yy % scale, scale);
                 }
     }
     sprites_gen = hd_serial;
@@ -1340,7 +1398,7 @@ static void draw_sprite_layer(int scale, float t) {
         float x = c->x - move_x[i] * back, y = c->y - move_y[i] * back;
         int sw = (c->w + 2) * scale, sh = (c->h + 2) * scale;
         int X0 = (int)lroundf((x + hd_frame.extra) * scale) - scale, Y0 = (int)lroundf(y * scale) - scale;
-        const uint32_t *src = sprite_scaled[i];
+        const uint32_t *src = SPRITE_SCALED(i);
         for (int yy = 0; yy < sh; yy++) {
             int Y = Y0 + yy;
             if (Y < 0 || Y >= hd_h) continue;
@@ -1350,7 +1408,7 @@ static void draw_sprite_layer(int scale, float t) {
                 uint32_t v = src[yy * sw + xx];
                 if (X < 0 || X >= hd_w || !((v >> 16) & 0x0F)) continue;
                 row[X] = v;
-                if (tex) sprite_tex_layer[(size_t)Y * hd_w + X] = sprite_tex[i][yy * sw + xx];
+                if (tex) sprite_tex_layer[(size_t)Y * hd_w + X] = SPRITE_TEX(i)[yy * sw + xx];
             }
         }
     }

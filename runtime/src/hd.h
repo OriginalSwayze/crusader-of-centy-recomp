@@ -13,7 +13,7 @@
 
 #define HD_MAX_W (320 + MAX_EXTRA_WIDTH * 2)
 #define HD_MAX_H 240
-#define HD_MAX_SCALE 6                  /* 6x: 2544 x 1344, for 1440p and 4K screens */
+#define HD_MAX_SCALE 16                 /* 16x: 6784 x 3584 with 16:9; any scale of 2s and 3s up to it */
 
 enum { HD_LINE_DISPLAY = 1, HD_LINE_SH = 2, HD_LINE_COLUMN_VSCROLL = 4 };
 #define HD_WINDOW 0x80                  /* layer byte bit: plane A pixel from the window (does not scroll) */
