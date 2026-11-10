@@ -1,13 +1,12 @@
 /* The Beyond Oasis Recomp features that hook into that game's code and RAM (its object
  * lists, camera, map layers and sound driver) and have not been mapped in Crusader of
- * Centy yet: widescreen, smooth motion, the outfit colours,
- * the element particles and the soundtrack player. Each is "off" here: the game runs and
+ * Centy yet: widescreen, smooth motion, the outfit colours
+ * and the soundtrack player. Each is "off" here: the game runs and
  * draws exactly as the cartridge does. */
 #include <string.h>
 #include "genesis.h"
 #include "motion.h"
 #include "outfit.h"
-#include "fx.h"
 #include "ost.h"
 
 /* ---- Widescreen (genesis.h) ---------------------------------------------------- */
@@ -39,11 +38,6 @@ void outfit_open(void) {}
 bool outfit_is_open(void) { return false; }
 bool outfit_event(const SDL_Event *e, float mx, float my) { (void)e; (void)mx; (void)my; return false; }
 void outfit_render(double time_s) { (void)time_s; }
-
-/* ---- Element particles and footsteps (fx.h) -------------------------------------- */
-void fx_game_frame(HdFrame *f, bool world, float cam_x, float cam_y) { (void)f; (void)world; (void)cam_x; (void)cam_y; }
-void fx_clear(void) {}
-void fx_draw(uint32_t *px, int w, int h, const HdPost *p) { (void)px; (void)w; (void)h; (void)p; }
 
 /* ---- The sound driver on its own (ost.h) ----------------------------------------- */
 void ost_start(void) {}

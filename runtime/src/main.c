@@ -19,6 +19,7 @@
 #include "menu.h"
 #include "combat.h"
 #include "automap.h"
+#include "fx.h"
 #include "savestate.h"
 #include "ui.h"
 #include "text.h"
@@ -172,7 +173,7 @@ static void apply_settings(void) {
     hd_merged = settings.merged_pass;
     sound_quality = settings.audio;
     hd_scaler = settings.scaler;
-    hd_water = false;                   /* made for Beyond Oasis's water colours */
+    hd_water = settings.water;
     /* Texture packs: load a pack when it changes (it can be many images), dump on request. */
     static char loaded_pack[64] = "";
     static bool pack_tried;
@@ -356,6 +357,7 @@ static HdPost finishing(int scale, float t) {
                  false, 0, 0, t, scale < 1 ? 1 : scale, vdp_opts.extra_width, 0 };
     p.hdr = settings.hdr;
     p.world = (bus.ram[0xAC00] | bus.ram[0xAC01]) != 0;
+    p.elements = settings.weather != 0;  /* weather and ambience (fx.c) */
     p.cam_x = (float)(int16_t)(bus.ram[0xA4F2] << 8 | bus.ram[0xA4F3]);
     p.cam_y = (float)(int16_t)(bus.ram[0xA4F6] << 8 | bus.ram[0xA4F7]);
     return p;
@@ -369,6 +371,7 @@ static void after_frame(bool live) {
     HdPost here = finishing(1, 0);
     combat_frame(&hd_frame, here.world, here.cam_x, here.cam_y, live);
     automap_frame(&hd_frame, here.world, here.cam_x, here.cam_y);
+    fx_game_frame(&hd_frame, here.world, here.cam_x, here.cam_y);
 }
 
 /* The ROM to play when none is set or it no longer loads: this build's versions in the rom
@@ -541,6 +544,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--difficulty") && i + 1 < argc) { settings.difficulty = atoi(argv[++i]) & 3; test_overrides = true; }   /* 0-3 */
         else if (!strcmp(argv[i], "--infinite-health")) { settings.cheat_health = true; test_overrides = true; }
         else if (!strcmp(argv[i], "--combat") && i + 1 < argc) { settings.combat_info = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
+        else if (!strcmp(argv[i], "--weather") && i + 1 < argc) { settings.weather = atoi(argv[++i]) % 5; test_overrides = true; }   /* 0-4 */
+        else if (!strcmp(argv[i], "--water") && i + 1 < argc) { settings.water = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--play-timer") && i + 1 < argc) { settings.play_timer = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--menu-shot") && i + 3 < argc) {
             /* --menu-shot F.png W H: open the in-game menu over the last frame and render it. */
@@ -767,7 +772,7 @@ int main(int argc, char **argv) {
             uint32_t *pixels = malloc((size_t)filter_w * filter_h * 4);
             if (target && pixels) {
                 SDL_SetRenderTarget(sr, target);
-                bool hd = settings.internal_scale > 1 || hd_texpack;   /* as the window draws it */
+                bool hd = settings.internal_scale > 1 || settings.water || hd_texpack;   /* as the window draws it */
                 hd_time = 1.0f;
                 if (hd) hd_compose(settings.internal_scale);
                 int tw = hd ? hd_w : frame_width(), th = hd ? hd_h : vdp_screen_height();
@@ -1075,7 +1080,7 @@ int main(int argc, char **argv) {
         /* The internal resolution this picture: the setting's, or auto quality's step. */
         int iscale = settings.auto_quality && quality_scale ? quality_scale : settings.internal_scale;
         /* Shadows are drawn while the layers are put together, so they need this path too. */
-        bool hd = (iscale > 1 || hd_texpack) &&
+        bool hd = (iscale > 1 || settings.water || hd_texpack) &&
                   hd_frame.h == vdp_screen_height();
         hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
         Uint64 t_start = SDL_GetPerformanceCounter(), t_layers = t_start, t_effects = t_start, t_upload = t_start;
@@ -1088,6 +1093,7 @@ int main(int argc, char **argv) {
             SDL_Texture *shown = NULL;
             if (gpu_effects_running && settings.gpu_effects && (post.lighting || post.hdr || post.sharpen)) {
                 /* The card grades, lights and sharpens; damage numbers and bars go on first. */
+                if (post.world && post.elements) fx_draw(hd_px, hd_w, hd_h, &post);
                 if (post.world && combat_active(&post)) combat_draw(hd_px, hd_w, hd_h, &post);
                 shown = gpu_fx_finish(ren, hd_px, hd_w, hd_h, hd_w, &post, iscale > 1);
                 t_effects = SDL_GetPerformanceCounter();

@@ -491,12 +491,14 @@ static int8_t *water_wx;                /* per game pixel: which plane (for its 
 static int water_w, water_h;
 static int8_t wave_lut[256];
 
-/* Blue well above both red and green: the sea and lakes are (0,1,4), (0,2,5), (1,4,6),
- * (2,4,7); the grey-blue stone of the water dungeon's floors, (1,3,4) and (1,2,3), is not,
- * and would otherwise ripple, sparkle and foam along every crack. */
+/* Crusader of Centy's water is a pale cyan: green and blue level and red below them, as
+ * the streams' (3,4,4), (4,5,5) and (5,6,6). Deep blue (blue well above both) counts too.
+ * Grey, sand and grass are left out: their red is not below both green and blue. */
 static inline bool is_water_colour(uint16_t c) {
     int r = (c >> 1) & 7, g = (c >> 5) & 7, b = (c >> 9) & 7;
-    return b >= 3 && b >= r + 2 && b >= g + 2;
+    bool cyan = b >= 3 && g >= r + 1 && b >= r + 1 && (b == g || b == g + 1);
+    bool deep = b >= 3 && b >= r + 2 && b >= g + 2;
+    return cyan || deep;
 }
 
 /* The plane pixel the VDP would show (ignoring sprites); *plane gets 0 for A, 1 for B. */
@@ -538,6 +540,35 @@ static void make_water(int scale, const uint32_t *sprites) {
             x = e;
         }
     }
+    /* The water's own pattern has specks of other colours (white glints in Crusader of
+     * Centy's streams): gaps of up to 3 pixels between water, across and down, are water
+     * too, so they do not foam like shores. Sprites stay out. */
+    for (int y = 0; y < h; y++) {
+        uint8_t *m = water_map + (size_t)y * w;
+        for (int x = 1; x < w - 1; x++) {
+            if (m[x] || !m[x - 1]) continue;
+            int e = x;
+            while (e < w && !m[e] && e - x < 4) e++;
+            if (e < w && m[e] && e - x <= 3)
+                for (int k = x; k < e; k++) {
+                    uint32_t sp = sprites[(size_t)(y * scale + scale / 2) * hd_w + k * scale + scale / 2];
+                    if (!((sp >> 16) & 0x0F)) m[k] = 1;
+                }
+            x = e - 1;
+        }
+    }
+    for (int x = 0; x < w; x++)
+        for (int y = 1; y < h - 1; y++) {
+            if (water_map[(size_t)y * w + x] || !water_map[(size_t)(y - 1) * w + x]) continue;
+            int e = y;
+            while (e < h && !water_map[(size_t)e * w + x] && e - y < 4) e++;
+            if (e < h && water_map[(size_t)e * w + x] && e - y <= 3)
+                for (int k = y; k < e; k++) {
+                    uint32_t sp = sprites[(size_t)(k * scale + scale / 2) * hd_w + x * scale + scale / 2];
+                    if (!((sp >> 16) & 0x0F)) water_map[(size_t)k * w + x] = 1;
+                }
+            y = e - 1;
+        }
     /* How far to the nearest edge in any direction (for the foam), 0 on land, capped at 8:
      * two passes of a chamfer distance over the water. */
     for (size_t i = 0; i < (size_t)w * h; i++) water_edge[i] = water_map[i] ? 8 : 0;

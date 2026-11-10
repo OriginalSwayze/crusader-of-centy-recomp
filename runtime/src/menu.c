@@ -36,7 +36,8 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "Scaler", OPT_SCALER }, { ITEM_OPTION, "Filter", OPT_FILTER },
       { ITEM_OPTION, "Sharpening", OPT_SHARPEN }, { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER },
       { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
-    { { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR } },
+    { { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Water", OPT_WATER },
+      { ITEM_OPTION, "Weather", OPT_WEATHER } },
     { { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
       { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER } },
     { { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO },
@@ -47,7 +48,7 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "GPU effects", OPT_GPU }, { ITEM_OPTION, "Merged finishing pass", OPT_MERGED },
       { ITEM_OPTION, "AVX2 pixel loops", OPT_AVX2 }, { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
 };
-static const int tab_count[TABS] = { 9, 7, 2, 5, 8, 6 };
+static const int tab_count[TABS] = { 9, 7, 4, 5, 8, 6 };
 
 /* What each option and action does, for the card on the right. */
 static const char *about(const Item *it) {
@@ -59,8 +60,8 @@ static const char *about(const Item *it) {
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
         case ACT_STATS: return NULL;
         case ACT_MAP: return "Fills in as you explore: everything that has been on screen on this map, with your place blinking. Each map keeps its own, saved between sessions.";
-        case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
-        case ACT_PRESET_ENHANCED: return "The recommended enhancements in one go: the art redrawn at 3x with rounded edges and light sharpening, a soft glow, the HDR look, no sprite flicker and no slowdown. Difficulty and cheats stay as you set them.";
+        case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects or weather, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
+        case ACT_PRESET_ENHANCED: return "The recommended enhancements in one go: the art redrawn at 3x with rounded edges and light sharpening, a soft glow, the HDR look, living water, no sprite flicker and no slowdown. Difficulty and cheats stay as you set them.";
         }
     if (it->kind == ITEM_SLOT) return NULL;
     switch (it->id) {
@@ -76,6 +77,8 @@ static const char *about(const Item *it) {
     case OPT_TEXPACK: return "High-resolution replacements for the game's tiles, from a folder in texture_packs next to the game. None is the original art.";
     case OPT_DUMP: return "Writes every tile shown on screen once to texture_packs/dump, named by its key: the starting point for making a pack.";
     case OPT_REWIND: return "Hold the rewind key to step back in time.";
+    case OPT_WEATHER: return "Weather and ambience over the world, never over menus or story screens: leaves drifting on the wind, rain under a grey sky, snow, or fireflies at dusk. Only the picture changes; the game plays as before.";
+    case OPT_WATER: return "Streams, lakes and the sea roll with slow swells, foam where they meet the shore and anyone standing in them, glint along the crests and reflect the people and things above them.";
     case OPT_DIFFICULTY: return "How much each hit takes from your apples: Original as the cartridge has it, Easy half, Hard one and a half times, Very hard twice. Fractions carry over to the next hit, so Easy really halves the damage over a fight.";
     case OPT_CHEAT_HEALTH: return "Hits take nothing, and your apples stay full whatever happens.";
     case OPT_COMBAT: return "The damage of every hit rises from the enemy as a number, gold for a defeat in one blow; with health bars, a bar over an enemy shows what it has left for a few seconds after each hit.";
