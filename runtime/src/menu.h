@@ -15,6 +15,7 @@ typedef enum {
     MENU_QUIT,
     MENU_PLAY,                          /* the launcher: start the game */
     MENU_ROM,                           /* the launcher: pick a ROM */
+    MENU_CONTINUE,                      /* the launcher: start from the newest save state */
 } MenuAction;
 
 /* Opens the menu over the paused frame fb (fb_w x fb_h, pitch in pixels), which the
@@ -27,6 +28,7 @@ void menu_close(void);
  * filling an out_w x out_h output: a START tab in place of GAME. */
 void menu_open_launcher(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int out_w, int out_h, float window_to_pixels);
 bool menu_is_launcher(void);
+int  menu_continue_slot(void);          /* the save state Continue loads (0: none) */
 void menu_close_now(void);              /* gone at once (the launcher, when the game starts) */
 bool menu_is_open(void);
 MenuAction menu_event(const SDL_Event *e);

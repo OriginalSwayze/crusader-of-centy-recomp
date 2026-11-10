@@ -506,9 +506,10 @@ static bool run_launcher(SDL_Window *win, SDL_Renderer *ren, SDL_AudioDeviceID a
     Uint64 freq = SDL_GetPerformanceFrequency(), start = SDL_GetPerformanceCounter(), next = start;
     SDL_SetWindowTitle(win, "Crusader of Centy");
     bool play = false, done = false;
+    int cont = 0;                       /* Continue: the save state to load */
     int frames = 0;
     while (!done) {
-        if (launcher_autoplay && ++frames >= launcher_autoplay) { play = true; break; }
+        if (launcher_autoplay && ++frames >= launcher_autoplay) { play = true; cont = menu_continue_slot(); break; }   /* as Start: Continue if it is there */
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             pads_event(&e);
@@ -521,6 +522,7 @@ static bool run_launcher(SDL_Window *win, SDL_Renderer *ren, SDL_AudioDeviceID a
             bool reopen = false;
             switch (menu_event(&e)) {
             case MENU_PLAY: play = done = true; break;
+            case MENU_CONTINUE: play = done = true; cont = menu_continue_slot(); break;
             case MENU_QUIT: done = true; break;
             case MENU_ROM:
                 if (pick_rom() == 1 && switch_version()) { apply_settings(); reach_title(); reopen = true; }
@@ -572,7 +574,8 @@ static bool run_launcher(SDL_Window *win, SDL_Renderer *ren, SDL_AudioDeviceID a
     if (tex) SDL_DestroyTexture(tex);
     menu_close_now();
     if (audio) SDL_ClearQueuedAudio(audio);
-    machine_reset();                    /* the game starts from power on */
+    machine_reset();                    /* the game starts from power on, */
+    if (play && cont && !savestate_load(cont)) fprintf(stderr, "could not load slot %d\n", cont);   /* or from the save */
     return play;
 }
 
@@ -1151,7 +1154,7 @@ int main(int argc, char **argv) {
                     menu_close();
                     break;
                 case MENU_QUIT: running = false; break;
-                case MENU_NONE: case MENU_PLAY: case MENU_ROM: break;
+                case MENU_NONE: case MENU_PLAY: case MENU_ROM: case MENU_CONTINUE: break;
                 }
             } else if (open_menu) {
                 int win_w, win_h;

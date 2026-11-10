@@ -29,7 +29,7 @@ interpreter. It shares its recompiler and runtime with
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
 | Water: streams that swell, foam at the shore and reflect what stands in them (Settings > Effects) | done (`runtime/src/hd.c`): picture only, the game is untouched |
 | Auto-map (GAME > Map): each map fills in as you explore, saved in `automap.bin` | done (`runtime/src/automap.c`) |
-| Launcher and pause menu (`runtime/src/menu.c`): clean and minimal, one column of large text with the title screen or the paused game large beside it; Settings in pages (Display, Effects, Gameplay, Sound, Controls, System) | done |
+| Launcher and pause menu (`runtime/src/menu.c`): professional, in the colours of the game's title art and fields (sand, peach, moss, forest green); the launcher shows the real title logo cut from your ROM's title screen, Continue (the newest save state) and New game; Settings in pages (Display, Effects, Gameplay, Sound, Controls, General) with only player-facing options | done |
 | Sound levels: the mix brought down to about -19 dBFS with no clipping (it clipped at the Beyond Oasis gain); the volume setting follows the ear (squared: 50% is about -12 dB, 10% about -40 dB) | done |
 | Widescreen 16:10 and 16:9 (Settings > Display; `runtime/src/widescreen.c`, `config/patches.json`): the scrolling maps drawn wider by the game's own map code, with the camera stopping at the map edges and objects living in the side areas; other screens keep 4:3 with black sides | done; off is exactly the original |
 | Smooth motion | not yet: needs which sprite belongs to which object (`runtime/src/motion.c`); the game updates 60 times a second, so it would only help above 60 Hz |
@@ -80,7 +80,7 @@ build/cmake/CrusaderOfCenty.exe "<path to ROM>"
 (`local.json`, never committed); the build recompiles every version set up into
 `generated/<id>/` (also never committed), all in one game. Started without a ROM, the game
 looks in the `rom` folder next to it, then asks for one. The launcher comes first (Play,
-Settings, Language, Choose ROM); `--no-launcher` skips it once, and Settings > System > "Launcher at startup" turns it off.
+Continue, New game, Settings, Language, Choose ROM); `--no-launcher` skips it once, and Settings > General > "Launcher at startup" turns it off. Performance stats, auto quality and the renderer's switches are in `settings.ini` only.
 
 The tracer finds most of the code on its own; the rest is code it has seen running.
 `config/coverage.txt` lists those addresses (addresses only, nothing from the ROM), so a

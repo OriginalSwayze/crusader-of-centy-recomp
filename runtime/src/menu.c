@@ -1,9 +1,11 @@
-/* The pause menu and the launcher (menu.h): clean and minimal. One column of large text on
- * the left, a thin gold accent for the selection, and on the right the picture large: the
- * title screen in the launcher, the paused game in the menu, or what the selected row
- * shows (its save slot, a before/after preview, the map, the stats) with a line or two on
- * what it does. Pages instead of tabs: the home page, Settings, and its groups; Esc goes
- * back a page. */
+/* The pause menu and the launcher (menu.h): professional, with the game's own colours. The
+ * palette comes from its title art and its fields: the sand and peach of the logo's stone,
+ * its moss lettering, the deep greens of the forests. The launcher shows the game's real
+ * title logo (cut out of the title screen your ROM draws) over a deep forest green with a
+ * warm light and a few faint leaves drifting, the menu under it, and on the right the latest
+ * save state to continue from. One column of clean text, a sand accent for the selection,
+ * and the picture large on the right: the save, a before/after preview, the map, the
+ * stats, or what the row does. Pages: home, Settings and its groups; Esc goes back. */
 #include "menu.h"
 #include "controls.h"
 #include "preview.h"
@@ -21,11 +23,11 @@
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION, ITEM_PAGE } ItemKind;
 enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED,
-       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT };
+       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 /* ---- The pages --------------------------------------------------------------------------- */
-enum { PAGE_HOME, PAGE_SETTINGS, PAGE_DISPLAY, PAGE_EFFECTS, PAGE_GAMEPLAY, PAGE_SOUND, PAGE_SYSTEM, PAGES };
+enum { PAGE_HOME, PAGE_SETTINGS, PAGE_DISPLAY, PAGE_EFFECTS, PAGE_GAMEPLAY, PAGE_SOUND, PAGE_GENERAL, PAGES };
 #define MAX_ROWS 10
 typedef struct { const char *title; int count; Item items[MAX_ROWS]; } Page;
 
@@ -33,45 +35,44 @@ static const Page home_pause = { "Paused", 8, {
     { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
     { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
     { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } } };
-static const Page home_launcher = { NULL, 5, {
-    { ITEM_ACTION, "Play", ACT_PLAY }, { ITEM_PAGE, "Settings", PAGE_SETTINGS }, { ITEM_OPTION, "Language", OPT_LANGUAGE },
-    { ITEM_ACTION, "Choose ROM", ACT_ROM }, { ITEM_ACTION, "Quit", ACT_EXIT } } };
+/* The launcher's home: Continue appears when there is a save state to continue from. */
+static const Item launcher_items[] = {
+    { ITEM_ACTION, "Continue", ACT_CONTINUE }, { ITEM_ACTION, "New game", ACT_PLAY }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
+    { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_ACTION, "Choose ROM", ACT_ROM }, { ITEM_ACTION, "Quit", ACT_EXIT } };
+static Page home_launcher;
 static const Page pages[PAGES] = {
     [PAGE_SETTINGS] = { "Settings", 8, {
         { ITEM_PAGE, "Display", PAGE_DISPLAY }, { ITEM_PAGE, "Effects", PAGE_EFFECTS }, { ITEM_PAGE, "Gameplay", PAGE_GAMEPLAY },
-        { ITEM_PAGE, "Sound", PAGE_SOUND }, { ITEM_ACTION, "Controls", ACT_CONTROLS }, { ITEM_PAGE, "System", PAGE_SYSTEM },
+        { ITEM_PAGE, "Sound", PAGE_SOUND }, { ITEM_ACTION, "Controls", ACT_CONTROLS }, { ITEM_PAGE, "General", PAGE_GENERAL },
         { ITEM_ACTION, "Original experience", ACT_PRESET_ORIGINAL }, { ITEM_ACTION, "Enhanced experience", ACT_PRESET_ENHANCED } } },
     [PAGE_DISPLAY] = { "Display", 8, {
         { ITEM_OPTION, "Widescreen", OPT_WIDESCREEN }, { ITEM_OPTION, "Window", OPT_WINDOW_ALL }, { ITEM_OPTION, "Integer scaling", OPT_INTEGER },
         { ITEM_OPTION, "Internal resolution", OPT_INTERNAL }, { ITEM_OPTION, "Scaler", OPT_SCALER },
         { ITEM_OPTION, "Filter", OPT_FILTER }, { ITEM_OPTION, "Sharpening", OPT_SHARPEN },
         { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER } } },
-    [PAGE_EFFECTS] = { "Effects", 5, {
+    [PAGE_EFFECTS] = { "Effects", 4, {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Water", OPT_WATER },
-        { ITEM_OPTION, "Texture pack", OPT_TEXPACK }, { ITEM_OPTION, "Dump tiles", OPT_DUMP } } },
+        { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
     [PAGE_GAMEPLAY] = { "Gameplay", 8, {
         { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
         { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER },
         { ITEM_OPTION, "Fast-forward", OPT_FAST }, { ITEM_OPTION, "Rewind", OPT_REWIND_ALL },
         { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } } },
     [PAGE_SOUND] = { "Sound", 2, { { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO } } },
-    [PAGE_SYSTEM] = { "System", 7, {
-        { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Launcher at startup", OPT_LAUNCHER },
-        { ITEM_OPTION, "Performance stats", OPT_PERF_STATS }, { ITEM_OPTION, "Auto quality", OPT_AUTO_QUALITY },
-        { ITEM_OPTION, "GPU effects", OPT_GPU }, { ITEM_OPTION, "Merged finishing pass", OPT_MERGED },
-        { ITEM_OPTION, "AVX2 pixel loops", OPT_AVX2 } } },
+    [PAGE_GENERAL] = { "General", 2, {
+        { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Launcher at startup", OPT_LAUNCHER } } },
 };
 
 /* What each row does, for the text under the picture. */
 static const char *about(const Item *it) {
     if (it->kind == ITEM_PAGE)
         switch (it->id) {
-        case PAGE_SETTINGS: return "Picture, effects, gameplay, sound, controls and system options.";
+        case PAGE_SETTINGS: return "Picture, effects, gameplay, sound and controls.";
         case PAGE_DISPLAY: return "The window, the internal resolution and how the pixels are drawn.";
         case PAGE_EFFECTS: return "Lighting, the HDR look, living water and texture packs. Only the picture changes.";
         case PAGE_GAMEPLAY: return "Difficulty, combat info, rewind, fast-forward and the slowdown fix.";
         case PAGE_SOUND: return "The volume and how the console's sound is output.";
-        case PAGE_SYSTEM: return "The language, the launcher and the renderer's options.";
+        case PAGE_GENERAL: return "The language you play in, and whether this launcher comes first.";
         }
     if (it->kind == ITEM_ACTION)
         switch (it->id) {
@@ -85,6 +86,7 @@ static const char *about(const Item *it) {
         case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, living water, no sprite flicker and no slowdown.";
         case ACT_ROM: return "Pick a ROM of Crusader of Centy (USA), or Ragnacenty from Japan or Korea. ROMs in the rom folder next to the game are found by themselves.";
         case ACT_PLAY: return NULL;
+        case ACT_CONTINUE: return NULL;
         }
     if (it->kind == ITEM_SLOT) return NULL;
     switch (it->id) {
@@ -136,12 +138,17 @@ static const char *about(const Item *it) {
 #define TEXT_Y  (PIC_Y + PIC_H + 26)
 #define VOLUME_W 120
 
-#define C_TEXT  rgb_hex(0xF2F0EA)
-#define C_DIM   rgb_hex(0x8C8F98)
-#define C_FAINT rgb_hex(0x5A5D66)
-#define C_GOLD  rgb_hex(0xE8C477)
+/* From the title art and the fields: the logo's sand and peach stone, its moss lettering,
+ * the forests' deep greens. */
+#define C_TEXT  rgb_hex(0xF5F1E4)
+#define C_DIM   rgb_hex(0x97A08F)
+#define C_FAINT rgb_hex(0x5E695C)
+#define C_GOLD  rgb_hex(0xEBC98F)       /* sand: the accent */
+#define C_PEACH rgb_hex(0xE8A27A)
+#define C_MOSS  rgb_hex(0x8DB25A)
 #define C_RED   rgb_hex(0xF08A78)
-#define C_BG    rgb_hex(0x0F1013)
+#define C_BG    rgb_hex(0x0D1511)
+#define C_LINE  rgb_hex(0x2A352D)
 #define FONT    "Segoe UI"
 #define FONT_SB "Segoe UI Semibold"
 
@@ -164,14 +171,20 @@ static float hl_y, hl_v;                /* the accent, on a spring to the select
 static double closing_at = -1;
 static uint32_t *sharp;                 /* the window's picture before opening: the menu fades from it */
 static bool open_pending, confirm_pending;
+static uint32_t *logo;                  /* the title logo cut out of the title screen (0 = clear) */
+static int logo_w, logo_h;
+static SlotInfo latest;                 /* the newest save state (the launcher's Continue) */
+static int latest_slot;
 static int confirm_item;
 
 #define CLOSE_S .18
 
 static const Page *cur(void) { return page == PAGE_HOME ? (launcher ? &home_launcher : &home_pause) : &pages[page]; }
 static bool big_rows(void) { return page == PAGE_HOME || page == PAGE_SETTINGS; }
-static float row_h(void) { return big_rows() ? 54 : 44; }
-static float row_y(int i) { return LIST_Y + i * row_h(); }
+static float row_h(void) { return big_rows() ? 52 : 44; }
+/* The launcher's home starts under the logo. */
+static float list_y(void) { return launcher && page == PAGE_HOME ? 300 : LIST_Y; }
+static float row_y(int i) { return list_y() + i * row_h(); }
 static const Item *item_at(int i) { return i >= 0 && i < cur()->count ? &cur()->items[i] : NULL; }
 
 bool menu_is_open(void) {
@@ -220,6 +233,57 @@ static void blur_rgb(uint32_t *px, int w, int h, int r) {
     free(tmp);
 }
 
+/* The title logo: the lit part of the title screen's top (its name over the stone tablet),
+ * cropped to what is drawn, with black made clear. */
+static void cut_logo(void) {
+    free(logo);
+    logo = NULL;
+    logo_w = logo_h = 0;
+    if (!frame || frame_w < 64 || frame_h < 140) return;
+    int x0 = frame_w, y0 = 140, x1 = -1, y1 = -1;
+    for (int y = 4; y < 132; y++)
+        for (int x = 0; x < frame_w; x++) {
+            uint32_t p = frame[y * frame_w + x];
+            if (((p >> 16) & 255) + ((p >> 8) & 255) + (p & 255) < 60) continue;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+    if (x1 < x0 || y1 < y0 || x1 - x0 < 40) return;
+    logo_w = x1 - x0 + 1;
+    logo_h = y1 - y0 + 1;
+    logo = malloc((size_t)logo_w * logo_h * 4);
+    if (!logo) { logo_w = logo_h = 0; return; }
+    for (int y = 0; y < logo_h; y++)
+        for (int x = 0; x < logo_w; x++) {
+            uint32_t p = frame[(y0 + y) * frame_w + x0 + x];
+            logo[y * logo_w + x] = ((p >> 16) & 255) + ((p >> 8) & 255) + (p & 255) < 60 ? 0 : (p | 0xFF000000u);
+        }
+}
+
+/* The newest save state of this version, for Continue; the home page lists it first. */
+static void find_latest(void) {
+    savestate_info_free(&latest);
+    latest_slot = 0;
+    time_t best = 0;
+    for (int k = 1; k <= 9; k++) {
+        SlotInfo info = { 0 };
+        if (savestate_info(k, &info) && info.exists && info.saved_at > best) {
+            savestate_info_free(&latest);
+            latest = info;
+            latest_slot = k;
+            best = info.saved_at;
+        } else savestate_info_free(&info);
+    }
+    int skip = latest_slot ? 0 : 1;
+    home_launcher.title = NULL;
+    home_launcher.count = (int)(sizeof launcher_items / sizeof *launcher_items) - skip;
+    memcpy(home_launcher.items, launcher_items + skip, sizeof(Item) * (size_t)home_launcher.count);
+}
+
+int menu_continue_slot(void) { return latest_slot; }
+
 /* Opens on the home page. The background: the game's picture (or the title screen) blurred
  * and darkened far down, darkest behind the column so the text reads on anything. */
 static void open_common(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
@@ -257,16 +321,35 @@ static void open_common(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, in
     free(sharp);
     sharp = malloc((size_t)out_w * out_h * 4);
     if (sharp) memcpy(sharp, backdrop, (size_t)out_w * out_h * 4);
-    blur_rgb(backdrop, out_w, out_h, (int)(14 * ui_s));
-    Rgb bg = C_BG;
-    for (int y = 0; y < out_h; y++)
-        for (int x = 0; x < out_w; x++) {
-            float u = (x - ui_ox) / ui_s;
-            float k = (launcher ? .16f : .22f) + .1f * smooth(560, 900, u);
-            Rgb c = mix(bg, unpack(backdrop[y * out_w + x]), k);
-            c = add(c, rgb(1, 1, 1), (hashf((uint32_t)(y * out_w + x)) - .5f) * 2.f / 255);
-            backdrop[y * out_w + x] = pack(c);
-        }
+    if (launcher) {
+        /* Deep forest green, lighter toward a warm light at the top right, a soft vignette. */
+        for (int y = 0; y < out_h; y++)
+            for (int x = 0; x < out_w; x++) {
+                float u = (x + .5f - ui_ox) / ui_s, v = (y + .5f - ui_oy) / ui_s;
+                Rgb c = mix(rgb_hex(0x16241B), rgb_hex(0x0A100D), clampf(v / 720, 0, 1));
+                float dx = u - 1080, dy = v + 60, d = sqrtf(dx * dx + dy * dy);
+                c = add(c, rgb_hex(0xE9C48C), .10f * expf(-d / 520));
+                float vig = sqrtf((u - 640) * (u - 640) / (720.f * 720.f) + (v - 360) * (v - 360) / (420.f * 420.f));
+                c = scale(c, 1 - .35f * smooth(.6f, 1.3f, vig));
+                c = add(c, rgb(1, 1, 1), (hashf((uint32_t)(y * out_w + x)) - .5f) * 2.5f / 255);
+                backdrop[y * out_w + x] = pack(c);
+            }
+    } else {
+        blur_rgb(backdrop, out_w, out_h, (int)(14 * ui_s));
+        Rgb bg = C_BG;
+        for (int y = 0; y < out_h; y++)
+            for (int x = 0; x < out_w; x++) {
+                float u = (x - ui_ox) / ui_s;
+                float k = .22f + .1f * smooth(560, 900, u);
+                Rgb c = mix(bg, unpack(backdrop[y * out_w + x]), k);
+                c = add(c, rgb(1, 1, 1), (hashf((uint32_t)(y * out_w + x)) - .5f) * 2.f / 255);
+                backdrop[y * out_w + x] = pack(c);
+            }
+    }
+    if (launcher) {
+        cut_logo();
+        find_latest();
+    }
 }
 
 void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
@@ -394,6 +477,7 @@ static MenuAction act(int dir, bool activate) {
         switch (it->id) {
         case ACT_RESUME: return MENU_CLOSE;
         case ACT_PLAY: sound(1); return MENU_PLAY;
+        case ACT_CONTINUE: sound(1); return MENU_CONTINUE;
         case ACT_ROM: sound(1); return MENU_ROM;
         case ACT_EXIT: return MENU_QUIT;
         case ACT_CONTROLS: sound(1); controls_open(); return MENU_NONE;
@@ -452,7 +536,7 @@ MenuAction menu_event(const SDL_Event *e) {
         break;
     case SDL_CONTROLLERBUTTONDOWN:
         switch (e->cbutton.button) {
-        case SDL_CONTROLLER_BUTTON_START: if (launcher) return MENU_PLAY; return depth ? back() : MENU_CLOSE;
+        case SDL_CONTROLLER_BUTTON_START: if (launcher) return latest_slot ? MENU_CONTINUE : MENU_PLAY; return depth ? back() : MENU_CLOSE;
         case SDL_CONTROLLER_BUTTON_B: case SDL_CONTROLLER_BUTTON_BACK: return back();
         case SDL_CONTROLLER_BUTTON_DPAD_UP: select_row((selected + n - 1) % n); break;
         case SDL_CONTROLLER_BUTTON_DPAD_DOWN: select_row((selected + 1) % n); break;
@@ -546,7 +630,7 @@ static void draw_picture(const uint32_t *img, int w, int h, float x, float y, fl
             }
         }
     }
-    outline(x, y, pw, ph, rgb_hex(0x2C2E35), alpha);
+    outline(x, y, pw, ph, C_LINE, alpha);
 }
 
 static void draw_slot_picture(float alpha) {
@@ -573,15 +657,24 @@ static void draw_slot_picture(float alpha) {
 /* The right side: the picture for the selected row, and what the row does. */
 static void draw_side(float t, float alpha) {
     const Item *it = item_at(selected);
+    if (it && it->kind == ITEM_ACTION && it->id == ACT_CONTINUE) {
+        draw_picture(latest.thumb, latest.w, latest.h, PIC_X, PIC_Y, PIC_W, PIC_H, alpha);
+        char when[64], line[128];
+        strftime(when, sizeof when, "%d %b %Y, %H:%M", localtime(&latest.saved_at));
+        snprintf(line, sizeof line, "Save state %d  \xC2\xB7  %s", latest_slot, when);
+        ui_draw_text(line, FONT, 16, 400, 0, PIC_X, TEXT_Y, C_TEXT, C_TEXT, alpha);
+        draw_wrapped("Picks up where you left off. F2 in the game saves a new state; this always offers the newest.", PIC_X, TEXT_Y + 28, PIC_W, 15.5f, C_DIM, alpha);
+        return;
+    }
     if (it && it->kind == ITEM_SLOT) { draw_slot_picture(alpha); return; }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_MAP) {
-        ui_fill_rect(PIC_X, PIC_Y, PIC_W, PIC_H, rgb_hex(0x08090B), alpha);
+        ui_fill_rect(PIC_X, PIC_Y, PIC_W, PIC_H, rgb_hex(0x080C0A), alpha);
         if (!automap_draw(PIC_X + 8, PIC_Y + 8, PIC_W - 16, PIC_H - 16, t, alpha)) {
             const char *none = "Nothing of this map seen yet.";
             float w = ui_text_width(none, FONT, 16, 400, 0);
             ui_draw_text(none, FONT, 16, 400, 0, PIC_X + (PIC_W - w) / 2, PIC_Y + PIC_H / 2 - 10, C_DIM, C_DIM, alpha);
         }
-        outline(PIC_X, PIC_Y, PIC_W, PIC_H, rgb_hex(0x2C2E35), alpha);
+        outline(PIC_X, PIC_Y, PIC_W, PIC_H, C_LINE, alpha);
         draw_wrapped(about(it), PIC_X, TEXT_Y, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
@@ -593,7 +686,7 @@ static void draw_side(float t, float alpha) {
             char *tab_at = strchr(lines[i], '\t');
             if (!tab_at) continue;
             *tab_at = 0;
-            if (i == 2) { ui_fill_rect(PIC_X, y + 4, PIC_W, 1, rgb_hex(0x2C2E35), alpha); y += 22; }
+            if (i == 2) { ui_fill_rect(PIC_X, y + 4, PIC_W, 1, C_LINE, alpha); y += 22; }
             ui_draw_text(lines[i], FONT, 17, 400, 0, PIC_X, y, C_DIM, C_DIM, alpha);
             float vw = ui_text_width(tab_at + 1, FONT_SB, 17, 600, 0);
             ui_draw_text(tab_at + 1, FONT_SB, 17, 600, 0, PIC_X + PIC_W - vw, y, C_TEXT, C_TEXT, alpha);
@@ -604,9 +697,12 @@ static void draw_side(float t, float alpha) {
     if (it && it->kind == ITEM_OPTION && preview_supported(it->id) && preview_ready() && !launcher) {
         float ph = PIC_W * 9 / 16.f, py = PIC_Y + (PIC_H - ph) / 2;
         preview_draw(it->id, PIC_X, py, PIC_W, ph, t);
-        outline(PIC_X, py, PIC_W, ph, rgb_hex(0x2C2E35), alpha);
+        outline(PIC_X, py, PIC_W, ph, C_LINE, alpha);
     } else {
-        draw_picture(frame, frame_w, frame_h, PIC_X, PIC_Y, PIC_W, PIC_H, alpha);
+        /* In the launcher the newest save stands for the game (the logo is already on the left). */
+        if (launcher && latest_slot && !(it && it->kind == ITEM_ACTION && it->id == ACT_PLAY))
+            draw_picture(latest.thumb, latest.w, latest.h, PIC_X, PIC_Y, PIC_W, PIC_H, alpha);
+        else draw_picture(frame, frame_w, frame_h, PIC_X, PIC_Y, PIC_W, PIC_H, alpha);
     }
     float y = TEXT_Y;
     if (launcher && it && it->kind == ITEM_ACTION && it->id == ACT_PLAY && game) {
@@ -614,7 +710,7 @@ static void draw_side(float t, float alpha) {
         snprintf(line, sizeof line, "%s  \xC2\xB7  %s", game->name, game->language);
         ui_draw_text(line, FONT, 16, 400, 0, PIC_X, y, C_TEXT, C_TEXT, alpha);
         y += 28;
-        draw_wrapped("Press Enter, A or Start to play. Esc opens the menu in the game.", PIC_X, y, PIC_W, 15.5f, C_DIM, alpha);
+        draw_wrapped("Starts the game from the beginning, as the cartridge does. Your saves stay as they are.", PIC_X, y, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
     const char *text = it ? about(it) : NULL;
@@ -655,6 +751,71 @@ static void draw_row(int i, float dx, float alpha) {
     ui_draw_text(value, FONT, vpx, 400, 0, vx + dx + slide, vy, vc, vc, alpha * (.3f + .7f * s));
 }
 
+/* The title logo, crisp, with a soft shadow; the game's name under it in small capitals. */
+static void draw_logo(float t) {
+    (void)t;
+    if (!logo) {
+        const char *name = game && game->title ? game->title : "CRUSADER OF CENTY";
+        ui_draw_text(name, FONT, 34, 300, 5, COL_X, HEAD_Y + 4, C_TEXT, C_TEXT, 1);
+        ui_fill_rect(COL_X, HEAD_Y + 64, 44, 2, C_GOLD, 1);
+        return;
+    }
+    /* Its pixels are a little wide on a 256-pixel screen (4:3 over 256 x 224). */
+    float par = frame_w == 256 ? 1.1667f : 1, sy = 460.f / (logo_w * par), sx = sy * par;
+    if (logo_h * sy > 190) { sy = 190.f / logo_h; sx = sy * par; }
+    float x0 = COL_X - 4, y0 = 64;
+    int px0 = (int)ui_x(x0), py0 = (int)ui_y(y0), px1 = (int)ui_x(x0 + logo_w * sx), py1 = (int)ui_y(y0 + logo_h * sy);
+    for (int pass = 0; pass < 2; pass++) {
+        int off = pass ? 0 : (int)(5 * ui_s);
+        for (int py = py0; py < py1; py++) {
+            int ly = (int)((float)(py - py0) / (py1 - py0) * logo_h);
+            for (int px = px0; px < px1; px++) {
+                uint32_t p = logo[ly * logo_w + (int)((float)(px - px0) / (px1 - px0) * logo_w)];
+                if (!p) continue;
+                if (pass == 0) ui_blend_px(px + off, py + off, rgb(0, 0, 0), .45f);
+                else ui_blend_px(px, py, unpack(p & 0xFFFFFF), 1);
+            }
+        }
+    }
+    if (game && game->language) {
+        char line[96];
+        snprintf(line, sizeof line, "%s", game->name);
+        ui_draw_text(line, FONT_SB, 12.5f, 600, 3, COL_X, y0 + logo_h * sy + 22, C_GOLD, C_GOLD, .85f);
+    }
+}
+
+/* A leaf, size long, pointing at angle a: two arcs, a vein, a little lighter on one side. */
+static void leaf(float cx, float cy, float size, float a, Rgb c, float alpha) {
+    float ca = cosf(a), sa = sinf(a), half = size / 2, wid = size * .26f;
+    int r = (int)(half * ui_s) + 2, pcx = (int)ui_x(cx), pcy = (int)ui_y(cy);
+    for (int py = pcy - r; py <= pcy + r; py++)
+        for (int px = pcx - r; px <= pcx + r; px++) {
+            float u = (px + .5f - ui_ox) / ui_s - cx, v = (py + .5f - ui_oy) / ui_s - cy;
+            float along = u * ca + v * sa, across = -u * sa + v * ca, k = along / half;
+            if (k < -1 || k > 1) continue;
+            float d = fabsf(across) - wid * sqrtf(1 - k * k) * (1 - .25f * k);
+            if (d > 1 / ui_s) continue;
+            Rgb col = across < 0 ? scale(c, .8f) : c;
+            if (fabsf(across) < .45f && k < .8f) col = scale(c, .6f);
+            ui_blend_px(px, py, col, clampf(.5f - d * ui_s, 0, 1) * alpha);
+        }
+}
+
+/* A few leaves drifting slowly down through the launcher, faint, behind everything. */
+static void draw_leaves(float t) {
+    static const uint32_t colors[4] = { 0x6E9A48, 0x8DB25A, 0xC9A35A, 0x5C8040 };
+    for (int k = 0; k < 9; k++) {
+        float period = 22 + hashf((uint32_t)k * 97u) * 14;
+        float u = fmodf(t / period + hashf((uint32_t)k * 13u), 1);
+        float x = 600 + hashf((uint32_t)k * 31u) * 700 + u * 120 + sinf(t * .5f + k) * 28;
+        float y = -30 + u * 790;
+        float spin = t * (.5f + hashf((uint32_t)k * 19u) * .6f) * (k & 1 ? 1 : -1) + k;
+        float turn = .55f + .45f * fabsf(cosf(spin * .7f));
+        float fade = smooth(0, .08f, u) * (1 - smooth(.9f, 1, u));
+        leaf(x, y, (16 + hashf((uint32_t)k * 41u) * 10) * turn, spin, rgb_hex(colors[k % 4]), .16f * fade);
+    }
+}
+
 void menu_render(double time_s) {
     float dt = (float)(time_s - last_now);
     if (dt < 0 || dt > .25f) dt = 1 / 60.f;
@@ -677,11 +838,15 @@ void menu_render(double time_s) {
         const char *crumb = depth >= 2 ? "SETTINGS" : launcher ? name : "PAUSED";
         ui_draw_text(crumb, FONT_SB, 12.5f, 600, 3, COL_X, HEAD_Y - 26, C_GOLD, C_GOLD, .85f);
     }
-    if (home && launcher) ui_draw_text(name, FONT, 34, 300, 5, COL_X + dx, HEAD_Y + 4, C_TEXT, C_TEXT, pa);
-    else ui_draw_text(p->title, FONT, 40, 300, 1, COL_X + dx, HEAD_Y, C_TEXT, C_TEXT, pa);
-    ui_fill_rect(COL_X, HEAD_Y + 64, 44, 2, C_GOLD, 1);
+    if (home && launcher) draw_logo(t);
+    else {
+        ui_draw_text(p->title, FONT, 40, 300, 1, COL_X + dx, HEAD_Y, C_TEXT, C_TEXT, pa);
+        ui_fill_rect(COL_X, HEAD_Y + 64, 44, 2, C_GOLD, 1);
+    }
+    if (launcher) draw_leaves(t);
 
-    /* The selection: a thin gold bar at the column's edge, on a spring. */
+    /* The selection: a faint band across the row and a sand bar at its edge, on a spring. */
+    ui_fill_rect(COL_X - 22, hl_y + 4, COL_R - COL_X + 46, row_h() - 8, C_GOLD, .05f * pa);
     ui_fill_rect(COL_X - 22, hl_y + 10, 3, row_h() - 20, C_GOLD, pa);
     for (int i = 0; i < p->count; i++) {
         float e = ease_out((float)(now - fmax(page_at, opened_at) - i * .02f) / .22f);
