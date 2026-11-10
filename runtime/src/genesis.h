@@ -63,38 +63,9 @@ typedef struct {
     bool mask_sides;                    /* draw the widescreen columns black (screens made for 320) */
     int  hide_layers;                   /* debugging: bit 0 plane A, 1 plane B, 2 sprites, 3 window */
     bool hd_capture;                    /* keep each line's layers for hd_compose() (hd.h) */
-    bool outfit;                        /* draw the player's sprites with vdp_outfit's colours */
     bool tile_refs;                     /* keep each pixel's tile reference for texture packs (texpack.h) */
 } VdpOptions;
 
-/* The player character's outfit colours (vdp.c). Some colours are shared by two parts of
- * him (his hair and the Gold Armlet, his headband and boots), so his body is split by
- * height, counted up from his feet (the bottom of his sprites' box, which his sword does
- * not move): the head, the body and the feet (outfit_band). For each band and colour index
- * (palette * 16 + colour), vdp_outfit_pick is the colour picked for it or OUTFIT_KEEP and
- * vdp_outfit_anim its animation (OUTFIT_ANIM_*); vdp_outfit_ref is the brightness
- * (r + g + b, 0-21) of the colour the index stands for: each line the index gets the pick
- * scaled by how bright the game's CRAM colour is now, so shades keep their depth and fades
- * still darken him. Which sprites are his comes from motion.c. The last frame he was on
- * screen is kept in vdp_player (colour indices, 0 = none) with that frame's CRAM, for
- * previews. */
-#define OUTFIT_KEEP 0xFFFF
-#define PLAYER_IMG 128
-enum { OUTFIT_HEAD, OUTFIT_BODY, OUTFIT_FEET, OUTFIT_BANDS };
-enum { OUTFIT_ANIM_NONE, OUTFIT_ANIM_SHIMMER, OUTFIT_ANIM_PULSE, OUTFIT_ANIM_RAINBOW, OUTFIT_ANIM_FLAME, OUTFIT_ANIMS };
-extern uint16_t vdp_outfit_pick[OUTFIT_BANDS][64];
-extern uint8_t  vdp_outfit_anim[OUTFIT_BANDS][64];
-extern uint8_t  vdp_outfit_ref[64];
-/* The band of a row of his, by how far above his feet it is (0 = the lowest row). */
-static inline int outfit_band(int above_feet) { return above_feet >= 33 ? OUTFIT_HEAD : above_feet < 12 ? OUTFIT_FEET : OUTFIT_BODY; }
-/* The colour an index gets: the pick, animated at this row and moment (frames at 60 Hz),
- * at the brightness of the game's colour now. */
-uint16_t vdp_outfit_color(uint16_t pick, int anim, uint16_t now, int ref, int above_feet, unsigned frame);
-extern uint8_t  vdp_player[PLAYER_IMG * PLAYER_IMG];
-extern uint16_t vdp_player_cram[64];
-extern int      vdp_player_w, vdp_player_h;   /* 0 until he has been on screen */
-extern int      vdp_player_x, vdp_player_y;   /* where that picture was on screen (x from the left of the 320 area) */
-uint16_t vdp_outfit_shade(uint16_t pick, uint16_t now, int ref);   /* the colour an index gets */
 uint32_t vdp_color_rgb(uint16_t cram);                             /* 0x00RRGGBB */
 
 extern Vdp vdp;
@@ -189,9 +160,5 @@ bool rewind_step(uint16_t *pad);
 void rewind_restore_head(void);
 int  rewind_frames(void);
 size_t rewind_bytes(void);
-
-/* ---- Game patches ------------------------------------------------------------ */
-void widescreen_patches(int extra_width);   /* widescreen.c: 0 restores the original code */
-void widescreen_frame(void);                /* widescreen.c: per-frame decisions (side masking) */
 
 #endif

@@ -69,7 +69,7 @@ float ui_slider_value(float x, float w, float mouse_x);
 void  ui_button(float x, float y, float w, float h, const char *label, float text_px,
                 bool primary, bool focus, bool enabled, float lx, float ly, float t);
 
-/* ---- The holofoil look (the launcher and the in-game menu) ------------------------- */
+/* ---- Accents and small widgets ------------------------------------------------------ */
 /* The accent: iridescent holofoil, a pastel drifting through cyan, violet and gold along
  * s and in time t. */
 static inline Rgb ui_holo(float s, float t) { return mix(rgb(1, 1, 1), hue(s + t * .05f), .45f); }

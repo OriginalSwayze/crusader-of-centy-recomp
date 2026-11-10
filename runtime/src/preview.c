@@ -134,7 +134,7 @@ static void render_look(const Look *l, Picture *out) {
     hd_water = keep_water;
     hd_time = keep_time;
     int scale = hd_w / (hd_frame.w > 0 ? hd_frame.w : 1);
-    HdPost post = { l->sharpen, l->lighting, false, false, where.world, where.cam_x, where.cam_y, 2.0f, scale < 1 ? 1 : scale, hd_frame.extra };
+    HdPost post = { l->sharpen, l->lighting, where.world, where.cam_x, where.cam_y, 2.0f, scale < 1 ? 1 : scale, hd_frame.extra };
     const uint32_t *img = hd_post(hd_px, hd_w, hd_h, hd_w, &post);
     free(out->px);
     out->px = malloc((size_t)hd_w * hd_h * 4);
@@ -175,7 +175,7 @@ void preview_draw(int option, float x, float y, float w, float h, float t) {
         vh = frame_aspect > card ? 1 : frame_aspect / card;
     }
     float cu = .5f, cv = .52f;
-    if (zoomed && where.focus_x >= 0) { cu = where.focus_x / fw; cv = where.focus_y / fh; }   /* on Ali */
+    if (zoomed && where.focus_x >= 0) { cu = where.focus_x / fw; cv = where.focus_y / fh; }   /* on the player */
     u0 = cu - uw / 2; v0 = cv - vh / 2;
     if (u0 < 0) u0 = 0;
     if (u0 + uw > 1) u0 = 1 - uw;

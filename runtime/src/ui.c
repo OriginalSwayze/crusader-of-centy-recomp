@@ -153,7 +153,7 @@ void ui_button(float x, float y, float w, float h, const char *label, float text
     ui_draw_text(label, "Segoe UI Semibold", text_px, 600, text_px * .3f, x + (w - tw) / 2, y + (h - m->h / ui_s) / 2, tc, tc, 1);
 }
 
-/* ---- The holofoil look ------------------------------------------------------------- */
+/* ---- Accents and small widgets ------------------------------------------------------------- */
 void ui_spring(float *x, float *v, float target, float dt, float k) {
     float c = 2 * sqrtf(k);
     for (float left = dt; left > 0; left -= 1 / 240.f) {   /* small steps: stable at any dt */

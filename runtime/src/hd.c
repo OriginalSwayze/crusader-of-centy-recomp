@@ -8,7 +8,6 @@
  * and line scrolls are kept because every line was captured with its own colours. */
 #include "hd.h"
 #include "motion.h"
-#include "fx.h"
 #include "combat.h"
 #include "texpack.h"
 
@@ -1251,7 +1250,7 @@ const uint32_t *hd_post(const uint32_t *src, int w, int h, int pitch, const HdPo
     static uint32_t *buf;
     static size_t cap;
     bool light = p->lighting > 0;
-    bool world_fx = p->world && (p->elements || p->footsteps || combat_active(p));
+    bool world_fx = p->world && combat_active(p);
     int hdr = p->hdr < 0 ? 0 : p->hdr > 2 ? 2 : p->hdr;
     if (light || world_fx || hdr) {
         size_t need = (size_t)w * h;
@@ -1269,14 +1268,14 @@ const uint32_t *hd_post(const uint32_t *src, int w, int h, int pitch, const HdPo
                     MergedJob mj = { pj, hd_sharpen_peak(p->sharpen) };
                     make_sharpen_lut(mj.peak);
                     run_bands_of(merged_part, &mj, h, 32);
-                    if (world_fx) { fx_draw(buf, w, h, p); combat_draw(buf, w, h, p); }
+                    if (world_fx) combat_draw(buf, w, h, p);
                     return buf;
                 }
                 run_bands(post_part, &pj, h);
             } else {
                 for (int y = 0; y < h; y++) memcpy(buf + (size_t)y * w, src + (size_t)y * pitch, (size_t)w * 4);
             }
-            if (world_fx) { fx_draw(buf, w, h, p); combat_draw(buf, w, h, p); }
+            if (world_fx) combat_draw(buf, w, h, p);
             src = buf;
             pitch = w;
         }

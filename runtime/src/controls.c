@@ -9,7 +9,6 @@
 #include "input.h"
 #include "settings.h"
 #include "ui.h"
-#include "theme.h"
 
 #define ROW_RESET IN_COUNT
 #define ROW_BACK  (IN_COUNT + 1)
@@ -107,9 +106,12 @@ void controls_render(double time_s) {
     now = time_s;
     if (!open_) return;
     ui_fill_rect(0, 0, UI_BASE_W, UI_BASE_H, rgb(0, 0, 0), .55f);
-    theme_frame(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, true, 1);
-    theme_heading("CONTROLS", LIST_X - 2, PANEL_Y + 24, 34, 7, 1);
-    Rgb head = TH_GOLD;
+    ui_fill_rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, rgb_hex(0x15161A), .97f);
+    ui_fill_rect(PANEL_X, PANEL_Y, PANEL_W, 1, rgb_hex(0x2C2E35), 1);
+    ui_fill_rect(PANEL_X, PANEL_Y + PANEL_H - 1, PANEL_W, 1, rgb_hex(0x2C2E35), 1);
+    ui_draw_text("Controls", "Segoe UI", 34, 300, 1, LIST_X - 2, PANEL_Y + 22, rgb_hex(0xF2F0EA), rgb_hex(0xF2F0EA), 1);
+    ui_fill_rect(LIST_X - 2, PANEL_Y + 76, 44, 2, rgb_hex(0xE8C477), 1);
+    Rgb head = rgb_hex(0xE8C477);
     ui_draw_text("KEYBOARD", "Segoe UI Semibold", 11.5f, 600, 3.5f, KEY_X, LIST_Y - 26, head, head, 1);
     ui_draw_text("CONTROLLER", "Segoe UI Semibold", 11.5f, 600, 3.5f, PAD_X, LIST_Y - 26, head, head, 1);
 
@@ -117,10 +119,9 @@ void controls_render(double time_s) {
         float y = row_y(i);
         bool focus = selected == i;
         if (focus) {
-            ui_panel(LIST_X - 14, y + 1, LIST_R - LIST_X + 24, ROW_H - 2, 5, rgb_hex(0x46603A), rgb_hex(0x34482C), .55f, TH_LEAF, .35f);
-            theme_sword(LIST_X - 18, y + ROW_H / 2.f, 1);
+            ui_fill_rect(LIST_X - 22, y + 7, 3, ROW_H - 14, rgb_hex(0xE8C477), 1);
         }
-        Rgb lc = focus ? TH_CREAM : TH_LABEL;
+        Rgb lc = focus ? rgb_hex(0xF2F0EA) : rgb_hex(0x8C8F98);
         if (i == ROW_RESET) { ui_draw_text("Reset to defaults", "Segoe UI", 17, 400, 0, LIST_X, y + 7, lc, lc, 1); continue; }
         if (i == ROW_BACK) { ui_draw_text("Back", "Segoe UI", 17, 400, 0, LIST_X, y + 7, lc, lc, 1); continue; }
         ui_draw_text(input_labels[i], "Segoe UI", 17, 400, 0, LIST_X, y + 7, lc, lc, 1);
@@ -131,12 +132,12 @@ void controls_render(double time_s) {
                          KEY_X, y + 9, rgb_hex(0xF3DDA4), rgb_hex(0xF3DDA4), a);
             continue;
         }
-        Rgb vc = focus ? TH_GOLD_HI : TH_GOLD;
-        if (focus && now < captured_until) vc = TH_LEAF;
+        Rgb vc = focus ? rgb_hex(0xE8C477) : rgb_hex(0xA88E5C);
+        if (focus && now < captured_until) vc = rgb_hex(0x8FD19E);
         ui_draw_text(input_key_name(i), "Segoe UI Semibold", 16.5f, 600, 0, KEY_X, y + 7, vc, vc, 1);
         ui_draw_text(input_button_name(i), "Segoe UI Semibold", 16.5f, 600, 0, PAD_X, y + 7, vc, vc, 1);
     }
     const char *keys = "\xE2\x86\x91\xE2\x86\x93 select     Enter  change     Esc  back     "
                        "Esc, F-keys and the menus' own keys always work";
-    ui_draw_text(keys, "Segoe UI", 12, 400, 1, LIST_X, PANEL_Y + PANEL_H - 38, TH_DIM, TH_DIM, 1);
+    ui_draw_text(keys, "Segoe UI", 12, 400, 1, LIST_X, PANEL_Y + PANEL_H - 38, rgb_hex(0x5A5D66), rgb_hex(0x5A5D66), 1);
 }

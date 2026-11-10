@@ -26,7 +26,7 @@ typedef struct {
     int  x, y, w, h;                    /* screen position (x from the left of the 320 area) and size */
     uint16_t attr;
     bool player;                        /* drawn by the player character's object */
-    bool item;                          /* a dropped item: gives no spirit particles (fx.c decides, after each game frame) */
+    bool item;                          /* a dropped item (unused: kept for smooth motion's sprite records) */
     uint32_t px[32 * 32];               /* layer pixels, w x h, row pitch 32; 0 = transparent */
     uint32_t ref[32 * 32];              /* their tile references, with vdp_opts.tile_refs (texpack.h) */
 } HdSprite;
@@ -89,8 +89,6 @@ extern bool hd_water;
 typedef struct {
     int   sharpen;                      /* 0-3 */
     int   lighting;                     /* 0 off, 1 soft, 2 bright: bright pixels glow; 3 neon: the scenery's neon */
-    bool  elements;                     /* particles from the spirits and their magic (fx.c) */
-    bool  footsteps;                    /* dust, grass and splashes where Ali walks (fx.c) */
     bool  world;                        /* the picture shows the game world (not a menu or story scene) */
     float cam_x, cam_y;                 /* the game's camera, in game pixels (particles stay put in the world) */
     float t;                            /* seconds, for animations */
@@ -109,7 +107,7 @@ bool hd_glow(const uint32_t *src, int w, int h, int pitch, const HdPost *p, cons
 float hd_sharpen_peak(int level);       /* sharpening's neighbour weight for a level (0 off) */
 
 /* Runs rows(ctx, y0, y1) over rows 0..h in small bands on the renderer's worker threads
- * (all cores), returning when all are done. Also used by the launcher's and menu's foil. */
+ * (all cores), returning when all are done. Also used by the menus' backdrops. */
 void hd_rows(void (*rows)(void *ctx, int y0, int y1), void *ctx, int h);
 
 /* Sharpening (level 1-3: light, medium, strong) of a w x h picture with row pitch

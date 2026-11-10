@@ -1,9 +1,8 @@
 /* Combat info, rumble and stats (combat.c), from the health of the game's objects.
  *
- * After each game frame the enemies' health (+$8A of the main list's objects from slot 4),
- * Ali's and the spirit's slot are compared with the frame before. A drop in an enemy's
- * health shows its damage rising from it and its health bar; it also rumbles the
- * controller and counts in the stats, as do Ali's hits and the spirits' summons. */
+ * After each game frame the health of every object in the game's list is compared with the
+ * frame before: a drop shows the damage rising from the object and its health bar, rumbles
+ * the controller and counts in the stats, as do the player's own hits. */
 #ifndef COMBAT_H
 #define COMBAT_H
 

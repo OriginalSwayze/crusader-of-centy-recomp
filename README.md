@@ -27,9 +27,10 @@ interpreter. It shares its recompiler and runtime with
 | Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
 | Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
-| Water (living streams with reflections and foam), Weather (leaves, rain, snow, fireflies) | done (`runtime/src/hd.c`, `runtime/src/fx.c`): picture only, the game is untouched |
+| Water: streams that swell, foam at the shore and reflect what stands in them (Settings > Effects) | done (`runtime/src/hd.c`): picture only, the game is untouched |
 | Auto-map (GAME > Map): each map fills in as you explore, saved in `automap.bin` | done (`runtime/src/automap.c`) |
-| Launcher and pause menu in the game's look (`runtime/src/theme.c`, `menu.c`): dialogue-box frames, apple switches, a sword cursor; the launcher shows your ROM's title screen and plays its title music over an animated landscape of falling leaves and apples | done |
+| Launcher and pause menu (`runtime/src/menu.c`): clean and minimal, one column of large text with the title screen or the paused game large beside it; Settings in pages (Display, Effects, Gameplay, Sound, Controls, System) | done |
+| Sound levels: the mix brought down to about -19 dBFS with no clipping (it clipped at the Beyond Oasis gain); the volume setting follows the ear (squared: 50% is about -12 dB, 10% about -40 dB) | done |
 | Widescreen, smooth motion | not yet: these hook into the game's own code and RAM, which is not mapped for Crusader of Centy yet (`runtime/src/unported.c`) |
 
 ### Tested
@@ -77,8 +78,8 @@ build/cmake/CrusaderOfCenty.exe "<path to ROM>"
 `setup.mjs` checks each ROM, finds which version it is and remembers where it is
 (`local.json`, never committed); the build recompiles every version set up into
 `generated/<id>/` (also never committed), all in one game. Started without a ROM, the game
-looks in the `rom` folder next to it, then asks for one. The launcher comes first (START tab:
-Play, language, ROM); `--no-launcher` skips it once, and "Show this at startup" turns it off.
+looks in the `rom` folder next to it, then asks for one. The launcher comes first (Play,
+Settings, Language, Choose ROM); `--no-launcher` skips it once, and Settings > System > "Launcher at startup" turns it off.
 
 The tracer finds most of the code on its own; the rest is code it has seen running.
 `config/coverage.txt` lists those addresses (addresses only, nothing from the ROM), so a

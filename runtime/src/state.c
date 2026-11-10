@@ -10,7 +10,6 @@
 #include "genesis.h"
 #include "m68kcpu.h"
 #include "motion.h"
-#include "fx.h"
 #include "combat.h"
 #include <stddef.h>
 #include <stdlib.h>
@@ -82,7 +81,6 @@ bool state_load(const uint8_t *buf, size_t len) {
     }
     if (memcmp(old_sram, bus.sram, SRAM_SIZE)) bus.sram_dirty = true; /* the loaded save RAM goes to disk */
     motion_reset();                     /* the ticks seen before are not this game's past */
-    fx_clear();
     combat_clear();
     return true;
 }

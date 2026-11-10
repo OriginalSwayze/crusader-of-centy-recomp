@@ -16,7 +16,7 @@ void automap_load(const char *base_dir);
 void automap_save(const char *base_dir);
 
 /* Draws the current area's map into the ui canvas, fitted into (x, y, w, h) layout units,
- * with Ali's place blinking. False when nothing of this area has been seen. */
+ * with the player's place blinking. False when nothing of this area has been seen. */
 bool automap_draw(float x, float y, float w, float h, float t, float alpha);
 
 #endif

@@ -63,10 +63,9 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Dynamic lighting (torches, caves, glowing objects, glow around the player) | Engine for glow; light *sources* placed in the world need the map and object types: Map |
 | Time-of-day / day-night tint | Build: the camera and "in play" are mapped; indoors and outdoors still need telling apart, or houses would darken at night |
 | Enhanced water (ripples, reflections, shoreline foam) | Done: EFFECTS > Water, tuned to Centy's cyan streams; splashes when wading in still to do |
-| Falling leaves, fireflies | Done: EFFECTS > Weather (`runtime/src/fx.c`) |
+| Falling leaves, fireflies, rain, snow | Removed: they were a Beyond Oasis-style overlay, not part of this game's look; may come back per area once areas are mapped |
 | Grass, flowers and trees swaying; dust | Build: needs the plants found in the scenery |
-| Rain, snow | Done: EFFECTS > Weather (rain with an overcast tone and splashes) |
-| Fog, wind, weather changing by area | Build: weather is one setting for the whole game for now |
+| Fog, wind, weather by area | Build: needs the areas mapped (the map number is, `$FFFE76`) |
 | Soft shadows under characters, ambient occlusion | Build + Map: needs which sprites are characters (the object list) |
 | Particles: sword sparks, enemy defeat, impacts, debris | Build: enemy health and defeats are mapped (combat.c), so these can hang off them |
 | Configurable particle density, shadow intensity | follows the above |
@@ -96,7 +95,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Separate music / sound effects / ambience volume | Hard: the sound driver mixes music and effects on one chip; needs the driver's channel use mapped |
 | Configurable vibration | Done: PLAY > Rumble (off, light, strong) on hits, defeats and being hit |
 | HUD scaling / positioning | Hard: the HUD is drawn by the game into the same picture |
-| Interface in the game's own look (launcher, pause menu, controls) | Done: dialogue-box frames, apple switches, sword cursor, storybook headings, animated launcher (`theme.c`) |
+| Modern settings interface (launcher, pause menu, controls) | Done: clean and minimal, pages instead of tabs, the picture large beside the menu (`menu.c`) |
 | Enhanced in-game inventory, high-resolution inventory | Hard: the inventory is the game's own screen; would be a full redraw from its RAM |
 | Original interface theme | Done: the game's own interface is untouched |
 | Multiple controller profiles, Steam Input | Build / works: SDL reads Steam Input's virtual controller |
@@ -119,5 +118,5 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 1. Confirm combat info in a real fight; find the story flags.
 2. Smooth motion (needs which sprites belong to which object).
 3. Widescreen camera (patch the map streaming and camera clamp).
-4. World effects that need the camera: weather, vegetation, shadows, day/night.
+4. World effects that need the camera: vegetation, shadows, day/night.
 5. Companion pages, photo mode, then the larger modes (New Game+, Boss Rush).

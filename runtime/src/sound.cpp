@@ -203,6 +203,8 @@ float dc_in[2], dc_out[2];
 
 extern "C" {
 
+#define MIX_GAIN_NUM 45                 // percent: about -7 dB
+
 int16_t sound_out[SOUND_OUT_MAX * 2];
 int     sound_out_count;
 int     sound_out_rate = 48000;
@@ -235,8 +237,11 @@ void sound_advance(int m68k_cycles) {
         ym.chip.generate(&o);
         ym.tick_timers(YM_DIVIDER);
         int32_t p = sound_quality ? psg.step_average(PSG_CLOCK / YM_RATE) : psg.step(PSG_CLOCK / YM_RATE);
-        int32_t l = (sound_fm_enabled ? o.data[0] * 6 : 0) + (sound_psg_enabled ? p : 0);
-        int32_t r = (sound_fm_enabled ? o.data[1] * 6 : 0) + (sound_psg_enabled ? p : 0);
+        // Crusader of Centy's music drives the chips hard: at the Beyond Oasis gain (FM x6) it
+        // averaged -12 dBFS and clipped. MIX_GAIN brings FM and PSG down together (their
+        // balance is the console's) to about -19 dBFS with room for the peaks.
+        int32_t l = ((sound_fm_enabled ? o.data[0] * 6 : 0) + (sound_psg_enabled ? p : 0)) * MIX_GAIN_NUM / 100;
+        int32_t r = ((sound_fm_enabled ? o.data[1] * 6 : 0) + (sound_psg_enabled ? p : 0)) * MIX_GAIN_NUM / 100;
         if (sound_quality) {
             if (kernel_rate != sound_out_rate) make_kernel();
             hist_l[hist_at] = hist_l[hist_at + TAPS] = float(l);

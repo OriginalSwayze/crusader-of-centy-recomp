@@ -91,11 +91,9 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/menu.c
   runtime/src/savestate.c
   runtime/src/cheats.c
-  runtime/src/unported.c
+  runtime/src/motion.c
   runtime/src/combat.c
   runtime/src/automap.c
-  runtime/src/fx.c
-  runtime/src/theme.c
   runtime/src/hd.c
   runtime/src/filter.c
   runtime/src/input.c
