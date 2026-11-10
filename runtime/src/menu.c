@@ -50,9 +50,8 @@ static const Page pages[PAGES] = {
         { ITEM_OPTION, "Internal resolution", OPT_INTERNAL }, { ITEM_OPTION, "Scaler", OPT_SCALER },
         { ITEM_OPTION, "Filter", OPT_FILTER }, { ITEM_OPTION, "Sharpening", OPT_SHARPEN },
         { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER } } },
-    [PAGE_EFFECTS] = { "Effects", 7, {
+    [PAGE_EFFECTS] = { "Effects", 5, {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
-        { ITEM_OPTION, "Chromatic aberration", OPT_ABERRATION }, { ITEM_OPTION, "Film grain", OPT_GRAIN },
         { ITEM_OPTION, "Water", OPT_WATER },
         { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
     [PAGE_GAMEPLAY] = { "Gameplay", 8, {
@@ -71,7 +70,7 @@ static const char *about(const Item *it) {
         switch (it->id) {
         case PAGE_SETTINGS: return "Picture, effects, gameplay, sound and controls.";
         case PAGE_DISPLAY: return "The window, the internal resolution and how the pixels are drawn.";
-        case PAGE_EFFECTS: return "Lighting, the HDR look, hit effects, lens and film touches, living water and texture packs. Only the picture changes.";
+        case PAGE_EFFECTS: return "Lighting, the HDR look, hit effects, living water and texture packs. Only the picture changes.";
         case PAGE_GAMEPLAY: return "Difficulty, combat info, rewind, fast-forward and the slowdown fix.";
         case PAGE_SOUND: return "The volume and how the console's sound is output.";
         case PAGE_GENERAL: return "The language you play in, and whether this launcher comes first.";
@@ -103,8 +102,6 @@ static const char *about(const Item *it) {
     case OPT_LIGHTING: return "Bright spots glow softly into their surroundings.";
     case OPT_HDR: return "Deeper shadows, brighter highlights and richer colour. Strong goes further.";
     case OPT_PARTICLES: return "Sparks fly from every hit and defeated enemies burst into embers and leaves. Lots throws more.";
-    case OPT_ABERRATION: return "Red and blue fringes toward the edges of the picture, like an old camera lens. None in the middle.";
-    case OPT_GRAIN: return "Moving film grain over the picture, strongest in the mid tones. Drawn at the screen's resolution.";
     case OPT_WATER: return "Streams, lakes and the sea swell, foam along the shore and around anyone standing in them, and reflect what is above them.";
     case OPT_TEXPACK: return "High-resolution replacements for the game's tiles, from a folder in texture_packs next to the game.";
     case OPT_DUMP: return "Writes every tile shown to texture_packs/dump: the starting point for making a pack.";

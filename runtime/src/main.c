@@ -663,10 +663,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--sharpen") && i + 1 < argc) { settings.sharpen = atoi(argv[++i]) & 3; test_overrides = true; }   /* 0-3 */
         else if (!strcmp(argv[i], "--merged") && i + 1 < argc) { settings.merged_pass = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--avx2") && i + 1 < argc) { settings.avx2 = atoi(argv[++i]) != 0; test_overrides = true; }
-        else if (!strcmp(argv[i], "--aberration") && i + 1 < argc) { settings.aberration = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--test-burst") && i + 1 < argc) { extern int combat_test_burst; combat_test_burst = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--particles") && i + 1 < argc) { settings.particles = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
-        else if (!strcmp(argv[i], "--grain") && i + 1 < argc) { settings.grain = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--hdr") && i + 1 < argc) { settings.hdr = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--lighting") && i + 1 < argc) { settings.lighting = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--texture-pack") && i + 1 < argc) { snprintf(settings.texture_pack, sizeof settings.texture_pack, "%s", argv[++i]); test_overrides = true; }

@@ -25,8 +25,6 @@ typedef struct {
     /* Effects */
     int  lighting;                      /* glow of bright pixels: 0 off, 1 soft, 2 bright (hd_post) */
     int  hdr;                           /* HDR look: 0 off, 1 on, 2 strong (hd_post) */
-    int  aberration;                    /* chromatic aberration: 0 off, 1 subtle, 2 strong (filter.c) */
-    int  grain;                         /* film grain: 0 off, 1 fine, 2 heavy (filter.c) */
     int  particles;                     /* hit sparks and defeat bursts: 0 off, 1 on, 2 lots (combat.c) */
     bool water;                         /* water swells, foams, glints and reflects (hd_water) */
     char texture_pack[64];              /* folder in texture_packs/, empty for none (texpack.h) */
@@ -66,7 +64,7 @@ void settings_save(const char *path);
 enum {
     OPT_WIDESCREEN, OPT_WINDOW_ALL,     /* fullscreen or a window size, in one option */
     OPT_INTEGER, OPT_INTERNAL, OPT_SCALER, OPT_FILTER, OPT_SHARPEN, OPT_FLICKER,
-    OPT_LIGHTING, OPT_HDR, OPT_ABERRATION, OPT_GRAIN, OPT_PARTICLES, OPT_WATER, OPT_TEXPACK, OPT_DUMP,
+    OPT_LIGHTING, OPT_HDR, OPT_PARTICLES, OPT_WATER, OPT_TEXPACK, OPT_DUMP,
     OPT_DIFFICULTY, OPT_CHEAT_HEALTH, OPT_COMBAT, OPT_RUMBLE, OPT_TIMER, OPT_FAST,
     OPT_REWIND_ALL,                     /* rewind off or its buffer size, in one option */
     OPT_OVERCLOCK,

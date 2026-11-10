@@ -51,7 +51,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Texture replacement, high-resolution textures | Done: texture packs (MORE > Texture pack, Dump tiles) |
 | Bloom and glow, colour grading | Done: Lighting, HDR look |
 | CRT, scanlines, screen curvature | Done: Filter (Scanlines, CRT with curvature, LCD) |
-| Chromatic aberration, film grain | Done: Effects > Chromatic aberration and Film grain, drawn on the graphics card at the screen's resolution |
+| Chromatic aberration, film grain | Not wanted |
 | Unlocked frame rate | Engine: frames draw at the display's rate; moving sprites between game ticks (smooth motion) needs the sprite-to-object link: Map |
 | Widescreen camera | Done: 16:10 and 16:9 on the scrolling maps; the field camera ($188D2) keeps the wider view inside the map, its column and row draws reach the sides, 18 near-the-screen checks widened (one is not found in the Japanese and Korean code, `$22E3E`) |
 | Ultrawide | Hard: the plane holds 32 blocks (512 pixels), so the view can grow by 64 pixels a side at most (about 2:1 would need 80) |

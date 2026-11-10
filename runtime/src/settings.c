@@ -72,8 +72,6 @@ void settings_load(const char *path) {
         else if (!strcmp(k, "no_sprite_limit")) settings.no_sprite_limit = parse_bool(v);
         else if (!strcmp(k, "lighting")) settings.lighting = atoi(v);
         else if (!strcmp(k, "hdr_look")) settings.hdr = atoi(v);
-        else if (!strcmp(k, "chromatic_aberration")) settings.aberration = atoi(v);
-        else if (!strcmp(k, "film_grain")) settings.grain = atoi(v);
         else if (!strcmp(k, "hit_effects")) settings.particles = atoi(v);
         else if (!strcmp(k, "water")) settings.water = parse_bool(v);
         else if (!strcmp(k, "texture_pack")) snprintf(settings.texture_pack, sizeof settings.texture_pack, "%s", v);
@@ -113,8 +111,6 @@ void settings_load(const char *path) {
     settings.sharpen = clampi(settings.sharpen, 0, 3, 0);
     settings.lighting = clampi(settings.lighting, 0, 2, 0);
     settings.hdr = clampi(settings.hdr, 0, 2, 0);
-    settings.aberration = clampi(settings.aberration, 0, 2, 0);
-    settings.grain = clampi(settings.grain, 0, 2, 0);
     settings.particles = clampi(settings.particles, 0, 2, 0);
     settings.difficulty = clampi(settings.difficulty, 0, 3, 0);
     settings.combat_info = clampi(settings.combat_info, 0, 2, 0);
@@ -173,8 +169,6 @@ void settings_save(const char *path) {
     fprintf(f, "\n# Effects\n");
     fprintf(f, "lighting=%d\n", settings.lighting);
     fprintf(f, "hdr_look=%d\n", settings.hdr);
-    fprintf(f, "chromatic_aberration=%d\n", settings.aberration);
-    fprintf(f, "film_grain=%d\n", settings.grain);
     fprintf(f, "hit_effects=%d\n", settings.particles);
     fprintf(f, "water=%d\n", settings.water);
     fprintf(f, "texture_pack=%s\n", settings.texture_pack);
@@ -231,8 +225,6 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_FLICKER:    snprintf(out, n, "%s", on_off(settings.no_sprite_limit)); break;
     case OPT_LIGHTING:   snprintf(out, n, "%s", settings.lighting == 2 ? "Bright" : settings.lighting ? "Soft" : "Off"); break;
     case OPT_HDR:        snprintf(out, n, "%s", settings.hdr == 2 ? "Strong" : settings.hdr ? "On" : "Off"); break;
-    case OPT_ABERRATION: snprintf(out, n, "%s", settings.aberration == 2 ? "Strong" : settings.aberration ? "Subtle" : "Off"); break;
-    case OPT_GRAIN:      snprintf(out, n, "%s", settings.grain == 2 ? "Heavy" : settings.grain ? "Fine" : "Off"); break;
     case OPT_PARTICLES:  snprintf(out, n, "%s", settings.particles == 2 ? "Lots" : settings.particles ? "On" : "Off"); break;
     case OPT_WATER:      snprintf(out, n, "%s", on_off(settings.water)); break;
     case OPT_TEXPACK:    snprintf(out, n, "%s", settings.texture_pack[0] ? settings.texture_pack : "None"); break;
@@ -314,8 +306,6 @@ void settings_option_change(int id, int dir) {
     case OPT_FLICKER:    settings.no_sprite_limit = !settings.no_sprite_limit; break;
     case OPT_LIGHTING:   settings.lighting = settings_cycle(settings.lighting, 3, dir); break;
     case OPT_HDR:        settings.hdr = settings_cycle(settings.hdr, 3, dir); break;
-    case OPT_ABERRATION: settings.aberration = settings_cycle(settings.aberration, 3, dir); break;
-    case OPT_GRAIN:      settings.grain = settings_cycle(settings.grain, 3, dir); break;
     case OPT_PARTICLES:  settings.particles = settings_cycle(settings.particles, 3, dir); break;
     case OPT_WATER:      settings.water = !settings.water; break;
     case OPT_TEXPACK: {                 /* None, then each folder in texture_packs/ */
@@ -389,8 +379,6 @@ void settings_preset_original(void) {
     settings.sharpen = 0;
     settings.lighting = 0;
     settings.hdr = 0;
-    settings.aberration = 0;
-    settings.grain = 0;
     settings.particles = 0;
     settings.water = false;
     settings.no_sprite_limit = false;
