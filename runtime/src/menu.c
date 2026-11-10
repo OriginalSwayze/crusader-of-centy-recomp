@@ -50,8 +50,10 @@ static const Page pages[PAGES] = {
         { ITEM_OPTION, "Internal resolution", OPT_INTERNAL }, { ITEM_OPTION, "Scaler", OPT_SCALER },
         { ITEM_OPTION, "Filter", OPT_FILTER }, { ITEM_OPTION, "Sharpening", OPT_SHARPEN },
         { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER } } },
-    [PAGE_EFFECTS] = { "Effects", 4, {
-        { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Water", OPT_WATER },
+    [PAGE_EFFECTS] = { "Effects", 7, {
+        { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
+        { ITEM_OPTION, "Chromatic aberration", OPT_ABERRATION }, { ITEM_OPTION, "Film grain", OPT_GRAIN },
+        { ITEM_OPTION, "Water", OPT_WATER },
         { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
     [PAGE_GAMEPLAY] = { "Gameplay", 8, {
         { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH },
@@ -69,7 +71,7 @@ static const char *about(const Item *it) {
         switch (it->id) {
         case PAGE_SETTINGS: return "Picture, effects, gameplay, sound and controls.";
         case PAGE_DISPLAY: return "The window, the internal resolution and how the pixels are drawn.";
-        case PAGE_EFFECTS: return "Lighting, the HDR look, living water and texture packs. Only the picture changes.";
+        case PAGE_EFFECTS: return "Lighting, the HDR look, hit effects, lens and film touches, living water and texture packs. Only the picture changes.";
         case PAGE_GAMEPLAY: return "Difficulty, combat info, rewind, fast-forward and the slowdown fix.";
         case PAGE_SOUND: return "The volume and how the console's sound is output.";
         case PAGE_GENERAL: return "The language you play in, and whether this launcher comes first.";
@@ -83,7 +85,7 @@ static const char *about(const Item *it) {
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
         case ACT_MAP: return "Fills in as you explore: everything that has been on screen on this map, with your place blinking.";
         case ACT_PRESET_ORIGINAL: return "Everything as the cartridge was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound and saves stay as they are.";
-        case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, living water, no sprite flicker and no slowdown.";
+        case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
         case ACT_ROM: return "Pick a ROM of Crusader of Centy (USA), or Ragnacenty from Japan or Korea. ROMs in the rom folder next to the game are found by themselves.";
         case ACT_PLAY: return NULL;
         case ACT_CONTINUE: return NULL;
@@ -93,13 +95,16 @@ static const char *about(const Item *it) {
     case OPT_WIDESCREEN: return "Shows more of the world at the sides while you explore, drawn by the game's own map code. Title, story and menu screens keep the original 4:3 picture with black sides.";
     case OPT_WINDOW_ALL: return "Fullscreen, or a window of this many times the game's size. F11 switches at any time.";
     case OPT_INTEGER: return "Scales by whole numbers only, so every game pixel is the same size.";
-    case OPT_INTERNAL: return "Draws each layer at a higher resolution, rounding the edges of the pixel art. Native is the original look; 6x is for 1440p and 4K screens and needs a fast CPU.";
+    case OPT_INTERNAL: return "Draws each layer at a higher resolution, rounding the edges of the pixel art. Native is the original look. 3-4x suits 1080p, 6x 1440p and 4K; 8x to 16x (up to 3584 lines) supersample for the sharpest picture and need a fast many-core CPU.";
     case OPT_SCALER: return "Edge rounds corners, Smooth (xBR) follows curves and slopes, Sharp keeps every pixel square, exactly as drawn.";
     case OPT_FILTER: return "Scanlines, a curved CRT tube or an LCD grid over the picture.";
     case OPT_SHARPEN: return "Crisper edges after scaling, without halos.";
     case OPT_FLICKER: return "Lifts the hardware's limit of sprites on one line, so crowded scenes no longer flicker.";
     case OPT_LIGHTING: return "Bright spots glow softly into their surroundings.";
     case OPT_HDR: return "Deeper shadows, brighter highlights and richer colour. Strong goes further.";
+    case OPT_PARTICLES: return "Sparks fly from every hit and defeated enemies burst into embers and leaves. Lots throws more.";
+    case OPT_ABERRATION: return "Red and blue fringes toward the edges of the picture, like an old camera lens. None in the middle.";
+    case OPT_GRAIN: return "Moving film grain over the picture, strongest in the mid tones. Drawn at the screen's resolution.";
     case OPT_WATER: return "Streams, lakes and the sea swell, foam along the shore and around anyone standing in them, and reflect what is above them.";
     case OPT_TEXPACK: return "High-resolution replacements for the game's tiles, from a folder in texture_packs next to the game.";
     case OPT_DUMP: return "Writes every tile shown to texture_packs/dump: the starting point for making a pack.";

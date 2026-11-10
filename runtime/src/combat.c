@@ -13,7 +13,9 @@
  *   $FFFE62 / $FFFE60  the player's health and maximum, in apples.
  *
  * After each game frame the objects' health is compared with the frame before: a drop is a
- * hit (a number rises from the object and its health bar shows), a drop to 0 a defeat. */
+ * hit (a number rises from the object and its health bar shows), a drop to 0 a defeat.
+ * Both throw particles (the Hit effects setting): sparks from a hit, and from a defeat a
+ * flash, a ring and a burst of embers and leaves, which fall and fade. */
 #include "combat.h"
 
 #include <math.h>
@@ -56,10 +58,74 @@ static struct {
     uint32_t defeated, dealt, taken, hits_taken, deaths, biggest;
 } total;
 static double session_s;
+int combat_test_burst;                  /* --test-burst N: frames until a test burst */
 bool combat_log;                        /* --combat-log: print every hit and defeat (tests) */
 static uint32_t session_defeated;
 
-void combat_clear(void) { have_last = false; nnumbers = 0; for (int i = 0; i < SLOTS; i++) slots[i].bar_age = -1; }
+/* ---- Particles: world pixels, moved once a game frame --------------------------------- */
+typedef struct { float x, y, vx, vy, size; int age, life; uint32_t color; uint8_t kind; } Particle;
+enum { P_SPARK, P_EMBER, P_LEAF, P_FLASH, P_RING };
+#define MAX_PARTICLES 768
+static Particle parts[MAX_PARTICLES];
+static int nparts;
+
+static float frand(void) { return (float)rand() / (float)RAND_MAX; }
+
+static Particle *new_particle(void) {
+    if (nparts >= MAX_PARTICLES) return NULL;
+    Particle *p = &parts[nparts++];
+    memset(p, 0, sizeof *p);
+    return p;
+}
+
+static void spark_burst(float x, float y, bool defeat) {
+    if (!settings.particles) return;
+    int more = settings.particles == 2 ? 2 : 1;
+    int n = (defeat ? 10 : 7) * more;
+    for (int i = 0; i < n; i++) {               /* sparks: fast, short, white to gold */
+        Particle *p = new_particle();
+        if (!p) return;
+        float a = frand() * 6.2832f, v = 1.4f + frand() * 2.2f;
+        p->x = x; p->y = y - 4; p->vx = cosf(a) * v; p->vy = sinf(a) * v - .6f;
+        p->size = 1.1f + frand() * .7f; p->life = 9 + rand() % 8; p->kind = P_SPARK;
+        p->color = frand() < .5f ? 0xFFF6D8 : 0xFFD050;
+    }
+    if (!defeat) return;
+    Particle *f = new_particle();               /* the flash and the ring */
+    if (f) { f->x = x; f->y = y - 4; f->size = 14; f->life = 8; f->kind = P_FLASH; f->color = 0xFFE8B0; }
+    Particle *r = new_particle();
+    if (r) { r->x = x; r->y = y - 4; r->size = 4; r->life = 16; r->kind = P_RING; r->color = 0xFFD890; }
+    for (int i = 0; i < 16 * more; i++) {       /* embers and leaves: slower, they fall */
+        Particle *p = new_particle();
+        if (!p) return;
+        float a = frand() * 6.2832f, v = .5f + frand() * 1.6f;
+        bool leaf = frand() < .3f;
+        p->x = x + (frand() - .5f) * 8; p->y = y - 4 + (frand() - .5f) * 8;
+        p->vx = cosf(a) * v; p->vy = sinf(a) * v - 1.2f;
+        p->size = leaf ? 1.6f : 1.0f + frand() * 1.0f; p->life = 28 + rand() % 26;
+        p->kind = leaf ? P_LEAF : P_EMBER;
+        static const uint32_t embers[3] = { 0xFF9A3C, 0xFFC04A, 0xFF6A2C }, leaves[2] = { 0x8CD25A, 0x5FB048 };
+        p->color = leaf ? leaves[rand() % 2] : embers[rand() % 3];
+    }
+}
+
+static void move_particles(void) {
+    for (int i = 0; i < nparts; ) {
+        Particle *p = &parts[i];
+        if (++p->age >= p->life) { parts[i] = parts[--nparts]; continue; }
+        p->x += p->vx; p->y += p->vy;
+        switch (p->kind) {
+        case P_SPARK: p->vx *= .84f; p->vy = p->vy * .84f + .12f; break;
+        case P_EMBER: p->vx *= .93f; p->vy = p->vy * .93f + .06f; break;
+        case P_LEAF:  p->vx = p->vx * .9f + sinf(p->age * .35f + p->size * 9) * .18f; p->vy = p->vy * .9f + .05f; break;
+        case P_RING:  p->size += 1.6f - p->age * .06f; break;
+        default: break;
+        }
+        i++;
+    }
+}
+
+void combat_clear(void) { have_last = false; nnumbers = 0; nparts = 0; for (int i = 0; i < SLOTS; i++) slots[i].bar_age = -1; }
 
 static void rumble(float low, float high, int ms) {
     if (!settings.rumble) return;
@@ -82,6 +148,12 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
     (void)f; (void)cam_x; (void)cam_y;
     bool play = in_play();
     if (live && play) { session_s += machine_frame_s(); total.play_s += machine_frame_s(); }
+    move_particles();
+    if (combat_test_burst > 0 && --combat_test_burst == 0) {   /* --test-burst: a hit and a defeat by the player */
+        float px = (float)(int16_t)peek16(0xAC12), py = (float)(int16_t)peek16(0xAC16);
+        spark_burst(px - 20, py, false);
+        spark_burst(px + 24, py, true);
+    }
     for (int i = 0; i < nnumbers; ) {          /* numbers rise and go */
         if (++numbers[i].age >= 54) { memmove(numbers + i, numbers + i + 1, sizeof numbers[0] * (size_t)(--nnumbers - i)); continue; }
         i++;
@@ -104,6 +176,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
             int d = s->hp - hp;
             if (combat_log) printf("hit: object %06X type %04X health %u -> %u (%d points)%s\n", 0xFF0000 + a, s->type, s->hp, hp, points(d), defeated ? ", defeated" : "");
             if (settings.combat_info) add_number(s, points(d), defeated && d >= s->max);
+            if (live) spark_burst(s->x, s->y, defeated);
             if (live) {
                 total.dealt += (uint32_t)points(d);
                 if ((uint32_t)points(d) > total.biggest) total.biggest = (uint32_t)points(d);
@@ -173,13 +246,87 @@ static float digits_width(const char *s, int u) {
 }
 
 bool combat_active(const HdPost *p) {
-    return p->world && (settings.play_timer || (settings.combat_info && (nnumbers || settings.combat_info == 2)));
+    return p->world && (nparts ||settings.play_timer || (settings.combat_info && (nnumbers || settings.combat_info == 2)));
+}
+
+/* Light added to a pixel: c x a/256 (a up to 256). */
+static inline void add_light(uint32_t *q, uint32_t c, int a) {
+    uint32_t d = *q;
+    int r = (int)((d >> 16) & 255) + ((int)((c >> 16) & 255) * a >> 8);
+    int g = (int)((d >> 8) & 255) + ((int)((c >> 8) & 255) * a >> 8);
+    int b = (int)(d & 255) + ((int)(c & 255) * a >> 8);
+    *q = (uint32_t)((r > 255 ? 255 : r) << 16 | (g > 255 ? 255 : g) << 8 | (b > 255 ? 255 : b));
+}
+
+/* A soft round light of radius rad (pixels) at (cx, cy). mode 0 adds light, 1 adds only a
+ * band at its edge (a ring), 2 lays the colour over (seen on light ground too). */
+enum { GLOW_ADD, GLOW_RING, GLOW_SOLID };
+static void glow(uint32_t *px, int w, int h, float cx, float cy, float rad, uint32_t c, int a, int mode) {
+    if (rad < .5f || a <= 0) return;
+    int x0 = (int)(cx - rad - 1), x1 = (int)(cx + rad + 1), y0 = (int)(cy - rad - 1), y1 = (int)(cy + rad + 1);
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= w) x1 = w - 1;
+    if (y1 >= h) y1 = h - 1;
+    float inv = 1 / rad, band = rad * .18f + 1;
+    for (int y = y0; y <= y1; y++) {
+        float dy = (y + .5f - cy);
+        for (int x = x0; x <= x1; x++) {
+            float dx = (x + .5f - cx), d = sqrtf(dx * dx + dy * dy);
+            float k;
+            if (mode == GLOW_RING) { float e = fabsf(d - rad) / band; k = e < 1 ? 1 - e : 0; }
+            else { float t = 1 - d * inv; k = t > 0 ? t * t * (3 - 2 * t) : 0; }   /* smooth to the edge */
+            if (k <= 0) continue;
+            if (mode == GLOW_SOLID) put(px, w, h, x, y, 1, c, (int)(a * (k > .5f ? 1 : k * 2)));
+            else add_light(&px[(size_t)y * w + x], c, (int)(a * k));
+        }
+    }
+}
+
+static void draw_particles(uint32_t *px, int w, int h, const HdPost *p, float s) {
+    for (int i = 0; i < nparts; i++) {
+        const Particle *q = &parts[i];
+        float t = (float)q->age / q->life, fade = 1 - t;
+        float x = (q->x - p->cam_x + p->extra) * s, y = (q->y - p->cam_y) * s;
+        switch (q->kind) {
+        case P_FLASH: glow(px, w, h, x, y, q->size * s * (.6f + t), q->color, (int)(200 * fade * fade), GLOW_ADD); break;
+        case P_RING:  glow(px, w, h, x, y, q->size * s, q->color, (int)(230 * fade), GLOW_RING); break;
+        case P_SPARK: {
+            /* a short streak along its path: three lights from where it was to where it is */
+            for (int k = 0; k < 3; k++) {
+                float b = k / 3.f;
+                glow(px, w, h, x - q->vx * s * b, y - q->vy * s * b, q->size * s * (1 - b * .4f) * (.5f + fade * .5f),
+                     q->color, (int)(255 * fade * (1 - b * .5f)), k ? GLOW_ADD : GLOW_SOLID);
+            }
+            break;
+        }
+        case P_LEAF: {
+            /* leaves are solid, not light: a small dark-edged diamond that tumbles */
+            float r = q->size * s * (fade < .3f ? fade / .3f : 1);
+            int a = (int)(240 * (fade < .3f ? fade / .3f : 1));
+            float tilt = .55f + .45f * sinf(q->age * .5f + q->size * 7);
+            for (int yy = (int)(y - r); yy <= (int)(y + r); yy++)
+                for (int xx = (int)(x - r * tilt); xx <= (int)(x + r * tilt); xx++) {
+                    if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+                    float e = fabsf(xx + .5f - x) / (r * tilt + .01f) + fabsf(yy + .5f - y) / (r + .01f);
+                    if (e <= 1) put(px, w, h, xx, yy, 1, e > .7f ? 0x2A4A1E : q->color, a);
+                }
+            break;
+        }
+        default:
+            glow(px, w, h, x, y, q->size * s * (1.6f + fade), q->color, (int)(110 * fade), GLOW_ADD);   /* its light */
+            glow(px, w, h, x, y, q->size * s * (.6f + fade * .4f), q->color, (int)(255 * fade), GLOW_SOLID);
+            glow(px, w, h, x, y, q->size * s * .35f, 0xFFF4E0, (int)(220 * fade), GLOW_ADD);   /* hot middle */
+            break;
+        }
+    }
 }
 
 void combat_draw(uint32_t *px, int w, int h, const HdPost *p) {
     if (!p->world) return;
     int u = p->scale < 1 ? 1 : p->scale;
     float s = (float)u;
+    draw_particles(px, w, h, p, s);
     if (settings.combat_info == 2)
         for (int i = 0; i < SLOTS; i++) {
             const Slot *e = &slots[i];

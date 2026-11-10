@@ -6,8 +6,15 @@
  *  - CRT glow: the picture drawn into a target 1/8 the size and added back on top,
  *    stretched with linear filtering, which blurs it.
  *  - CRT curvature: the picture and the overlay are drawn as a grid of triangles bent
- *    into a barrel shape (SDL_RenderGeometry). */
+ *    into a barrel shape (SDL_RenderGeometry).
+ *  - Chromatic aberration: the picture drawn three times, added together, one colour each:
+ *    red a little larger than the picture and blue a little smaller, both about the middle,
+ *    so the fringes grow toward the edges as a lens's do.
+ *  - Film grain: a tile of noise at the screen's resolution, moved every game frame, that
+ *    brightens the picture by its value from one place and darkens it from another (a
+ *    blend of dst * noise added, then taken away), so on average nothing changes. */
 #include "filter.h"
+#include "settings.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -135,6 +142,130 @@ static SDL_Texture *sharpen(SDL_Renderer *ren, SDL_Texture *frame, SDL_Rect *s, 
     return sharp_tex;
 }
 
+/* The picture into dst, plain or bent (k > 0), with the chromatic aberration if it is on. */
+static void draw_picture(SDL_Renderer *ren, SDL_Texture *frame, const SDL_Rect *s, int tw, int th, SDL_Rect dst,
+                         float k) {
+    float u0 = (float)s->x / tw, v0 = (float)s->y / th, u1 = (float)(s->x + s->w) / tw, v1 = (float)(s->y + s->h) / th;
+    SDL_Color white = { 255, 255, 255, 255 };
+    float e = settings.aberration == 2 ? .0045f : settings.aberration ? .0018f : 0;
+    e *= dst.h;                                   /* pixels at the edges: 2 subtle, 5 strong at 1080p */
+    if (e < .75f) {
+        SDL_SetTextureBlendMode(frame, SDL_BLENDMODE_NONE);
+        if (k > 0) draw_curved(ren, frame, u0, v0, u1, v1, dst, k, white);
+        else SDL_RenderCopy(ren, frame, s, &dst);
+        return;
+    }
+    SDL_Rect old_clip;
+    bool clipped = SDL_RenderIsClipEnabled(ren);
+    SDL_RenderGetClipRect(ren, &old_clip);
+    SDL_RenderSetClipRect(ren, &dst);
+    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+    SDL_RenderFillRect(ren, &dst);
+    SDL_SetTextureBlendMode(frame, SDL_BLENDMODE_ADD);
+    static const SDL_Color tint[3] = { { 255, 0, 0, 255 }, { 0, 255, 0, 255 }, { 0, 0, 255, 255 } };
+    for (int c = 0; c < 3; c++) {
+        float grow = c == 0 ? e : c == 2 ? -e : 0, gx = grow * dst.w / dst.h;
+        if (k > 0) {
+            /* draw_curved takes whole pixels; the grid's warp keeps it about the middle. */
+            SDL_Rect r = { dst.x - (int)gx, dst.y - (int)grow, dst.w + 2 * (int)gx, dst.h + 2 * (int)grow };
+            draw_curved(ren, frame, u0, v0, u1, v1, r, k, tint[c]);
+        } else {
+            SDL_FRect r = { dst.x - gx, dst.y - grow, dst.w + 2 * gx, dst.h + 2 * grow };
+            SDL_SetTextureColorMod(frame, tint[c].r, tint[c].g, tint[c].b);
+            SDL_RenderCopyF(ren, frame, s, &r);
+        }
+    }
+    SDL_SetTextureColorMod(frame, 255, 255, 255);
+    SDL_SetTextureBlendMode(frame, SDL_BLENDMODE_NONE);
+    SDL_RenderSetClipRect(ren, clipped ? &old_clip : NULL);
+}
+
+/* ---- Film grain ---------------------------------------------------------------------- */
+
+#define GRAIN_N 256
+static SDL_Texture *grain_tex, *grain_mod_tex;
+static SDL_Renderer *grain_ren;
+static SDL_BlendMode grain_add, grain_sub;
+static bool grain_custom;                        /* the renderer has the custom blends */
+static int grain_mod_level;
+
+static uint32_t grain_rand(uint32_t *x) { *x = *x * 1664525u + 1013904223u; return *x >> 8; }
+
+/* Grey noise, close to a bell curve (three draws added), 0-255 round 128. With a level,
+ * the plain darkening tile used when the renderer has no custom blends. */
+static void grain_noise(uint32_t *px, int level) {
+    uint32_t r = 0x9E3779B9u;
+    for (int i = 0; i < GRAIN_N * GRAIN_N; i++) {
+        int v = (int)((grain_rand(&r) & 255) + (grain_rand(&r) & 255) + (grain_rand(&r) & 255)) / 3;
+        if (level) v = 255 - v * (level == 2 ? 70 : 36) / 255;
+        px[i] = (uint32_t)v * 0x010101u;
+    }
+}
+
+static SDL_Texture *grain_make(SDL_Renderer *ren, int level) {
+    static uint32_t px[GRAIN_N * GRAIN_N];
+    grain_noise(px, level);
+    SDL_Texture *t = SDL_CreateTexture(ren, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STATIC, GRAIN_N, GRAIN_N);
+    if (!t) return NULL;
+    SDL_UpdateTexture(t, NULL, px, GRAIN_N * 4);
+    SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
+    return t;
+}
+
+/* The tile over dst from (ox, oy), each noise pixel cell x cell screen pixels. */
+static void grain_tile(SDL_Renderer *ren, SDL_Texture *t, SDL_Rect dst, int cell, int ox, int oy) {
+    int size = GRAIN_N * cell;
+    for (int y = dst.y - oy; y < dst.y + dst.h; y += size)
+        for (int x = dst.x - ox; x < dst.x + dst.w; x += size) {
+            SDL_Rect r = { x, y, size, size };
+            SDL_RenderCopy(ren, t, NULL, &r);
+        }
+}
+
+static void draw_grain(SDL_Renderer *ren, SDL_Rect dst) {
+    if (!settings.grain) return;
+    if (grain_ren != ren) {
+        if (grain_tex) SDL_DestroyTexture(grain_tex);
+        if (grain_mod_tex) SDL_DestroyTexture(grain_mod_tex);
+        grain_tex = grain_make(ren, 0); grain_mod_tex = NULL; grain_mod_level = 0;
+        grain_ren = ren;
+        grain_add = SDL_ComposeCustomBlendMode(SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD,
+                                               SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+        /* dst - src: SDL2 calls it REV_SUBTRACT whatever its header says. */
+        grain_sub = SDL_ComposeCustomBlendMode(SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_REV_SUBTRACT,
+                                               SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+        grain_custom = grain_tex && SDL_SetTextureBlendMode(grain_tex, grain_add) == 0 &&
+                       SDL_SetTextureBlendMode(grain_tex, grain_sub) == 0;
+    }
+    /* A new place in the tile every game frame; the same between, on faster displays. */
+    uint32_t seed = (SDL_GetTicks() * 60 / 1000) * 2654435761u + 12345u;
+    int cell = dst.h / 900 > 1 ? dst.h / 900 : 1, size = GRAIN_N * cell;
+    int ax = (int)(grain_rand(&seed) % size), ay = (int)(grain_rand(&seed) % size);
+    int bx = (int)(grain_rand(&seed) % size), by = (int)(grain_rand(&seed) % size);
+    SDL_Rect old_clip;
+    bool clipped = SDL_RenderIsClipEnabled(ren);
+    SDL_RenderGetClipRect(ren, &old_clip);
+    SDL_RenderSetClipRect(ren, &dst);
+    if (grain_custom) {
+        Uint8 m = settings.grain == 2 ? 64 : 34;  /* noise x this: up to about 12% / 22% either way */
+        SDL_SetTextureColorMod(grain_tex, m, m, m);
+        SDL_SetTextureBlendMode(grain_tex, grain_add);
+        grain_tile(ren, grain_tex, dst, cell, ax, ay);
+        SDL_SetTextureBlendMode(grain_tex, grain_sub);
+        grain_tile(ren, grain_tex, dst, cell, bx, by);
+    } else {
+        if (grain_mod_level != settings.grain) {
+            if (grain_mod_tex) SDL_DestroyTexture(grain_mod_tex);
+            grain_mod_tex = grain_make(ren, settings.grain);
+            if (grain_mod_tex) SDL_SetTextureBlendMode(grain_mod_tex, SDL_BLENDMODE_MOD);
+            grain_mod_level = settings.grain;
+        }
+        if (grain_mod_tex) grain_tile(ren, grain_mod_tex, dst, cell, ax, ay);
+    }
+    SDL_RenderSetClipRect(ren, clipped ? &old_clip : NULL);
+}
+
 void filter_draw(SDL_Renderer *ren, SDL_Texture *frame, const SDL_Rect *src, SDL_Rect dst,
                  int src_w, int src_h, int mode) {
     if (dst.w <= 0 || dst.h <= 0) return;
@@ -144,18 +275,16 @@ void filter_draw(SDL_Renderer *ren, SDL_Texture *frame, const SDL_Rect *src, SDL
     SDL_Texture *sharp = sharpen(ren, frame, &s, dst);
     if (sharp) { frame = sharp; tw = s.w; th = s.h; }
     if (mode <= FILTER_OFF || mode >= FILTER_COUNT) {
-        SDL_RenderCopy(ren, frame, &s, &dst);
+        draw_picture(ren, frame, &s, tw, th, dst, 0);
+        draw_grain(ren, dst);
         return;
     }
-    float u0 = (float)s.x / tw, v0 = (float)s.y / th, u1 = (float)(s.x + s.w) / tw, v1 = (float)(s.y + s.h) / th;
     bool crt = mode == FILTER_CRT;
     float k = crt ? .045f : 0;
     SDL_Color white = { 255, 255, 255, 255 };
 
     /* The picture. */
-    SDL_SetTextureBlendMode(frame, SDL_BLENDMODE_NONE);
-    if (crt) draw_curved(ren, frame, u0, v0, u1, v1, dst, k, white);
-    else SDL_RenderCopy(ren, frame, &s, &dst);
+    draw_picture(ren, frame, &s, tw, th, dst, k);
 
     /* The overlay, multiplied. */
     if (overlay_ren != ren || ov_w != dst.w || ov_h != dst.h || ov_sw != src_w || ov_sh != src_h || ov_mode != mode ||
@@ -190,4 +319,5 @@ void filter_draw(SDL_Renderer *ren, SDL_Texture *frame, const SDL_Rect *src, SDL
             draw_curved(ren, glow_tex, 0, 0, 1, 1, dst, k, glow);
         }
     }
+    draw_grain(ren, dst);
 }
