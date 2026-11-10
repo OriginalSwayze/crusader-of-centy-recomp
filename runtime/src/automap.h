@@ -19,4 +19,8 @@ void automap_save(const char *base_dir);
  * with the player's place blinking. False when nothing of this area has been seen. */
 bool automap_draw(float x, float y, float w, float h, float t, float alpha);
 
+/* How much of the current area has been seen (0-100, -1 when its size is not known yet)
+ * and how many areas have been visited. */
+void automap_progress(int *percent, int *areas_seen);
+
 #endif

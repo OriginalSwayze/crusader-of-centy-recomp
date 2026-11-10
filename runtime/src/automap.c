@@ -5,6 +5,8 @@
  *            from its object's +$1A at $1C7DA)
  *   $FFA4F2 / $FFA4F6  the camera (world pixels at the picture's top left)
  *   $FFAC12 / $FFAC16  the player's X / Y (world pixels)
+ *   $FFA4FC / $FFA500  the camera's largest X / Y in this area: the area is that plus one
+ *            screen (320 x 224) wide and tall
  *
  * The game keeps no map size this needs, so each area is a grid of chunks of CHUNK x CHUNK
  * map pixels (CELL world pixels each), made as the camera reaches them. The HUD is made of
@@ -29,6 +31,7 @@ typedef struct {
     uint32_t key;
     uint16_t *chunk[GRID * GRID];       /* RGB565 + 1 (0 = not seen); NULL until reached */
     uint32_t used;
+    uint16_t world_w, world_h;          /* the area's size in world pixels (0 until seen) */
 } Area;
 
 static Area areas[MAX_MAPS];
@@ -92,6 +95,10 @@ void automap_frame(const HdFrame *f, bool world, float cam_x, float cam_y) {
     if (!world || f->h <= 0) return;
     here = find(area_key(), true);
     if (!here) return;
+    int ww = (int)peek16(0xA4FC) + 320, wh = (int)peek16(0xA500) + 224;
+    if (ww > 320 && ww <= GRID * CHUNK * CELL) here->world_w = (uint16_t)ww;
+    else if (ww == 320) here->world_w = 320;
+    if (wh >= 224 && wh <= GRID * CHUNK * CELL) here->world_h = (uint16_t)wh;
     player_wx = (float)(int16_t)peek16(0xAC12);
     player_wy = (float)(int16_t)peek16(0xAC16);
     if (++frame_n % 4) return;          /* the scenery barely moves in four frames */
@@ -164,7 +171,22 @@ bool automap_draw(float x, float y, float w, float h, float t, float alpha) {
     return true;
 }
 
-/* ---- automap.bin: "CCAM", version, area count; per area its key and chunk count, then
+void automap_progress(int *percent, int *areas_seen) {
+    *areas_seen = count;
+    *percent = -1;
+    if (!here || !here->world_w || !here->world_h) return;
+    int mw = here->world_w / CELL, mh = here->world_h / CELL;
+    long seen = 0;
+    for (int my = 0; my < mh; my++)
+        for (int mx = 0; mx < mw; mx++) {
+            const uint16_t *p = cell(here, mx, my, false);
+            if (p && *p) seen++;
+        }
+    int pc = (int)(seen * 100 / ((long)mw * mh));
+    *percent = pc > 100 ? 100 : pc;
+}
+
+/* ---- automap.bin: "CCAM", version, area count; per area its key, chunk count and (from version 2) size, then
  * per chunk its index and pixels ------------------------------------------------------------ */
 #define MAGIC 0x4D414343u
 
@@ -173,12 +195,12 @@ void automap_save(const char *base_dir) {
     snprintf(path, sizeof path, "%sautomap.bin", base_dir);
     FILE *f = fopen(path, "wb");
     if (!f) return;
-    uint32_t head[3] = { MAGIC, 1, (uint32_t)count };
+    uint32_t head[3] = { MAGIC, 2, (uint32_t)count };
     fwrite(head, sizeof head, 1, f);
     for (int i = 0; i < count; i++) {
         uint32_t n = 0;
         for (int c = 0; c < GRID * GRID; c++) n += areas[i].chunk[c] != NULL;
-        uint32_t a[2] = { areas[i].key, n };
+        uint32_t a[3] = { areas[i].key, n, (uint32_t)areas[i].world_w << 16 | areas[i].world_h };
         fwrite(a, sizeof a, 1, f);
         for (uint32_t c = 0; c < GRID * GRID; c++) {
             if (!areas[i].chunk[c]) continue;
@@ -195,12 +217,13 @@ void automap_load(const char *base_dir) {
     FILE *f = fopen(path, "rb");
     if (!f) return;
     uint32_t head[3];
-    if (fread(head, sizeof head, 1, f) == 1 && head[0] == MAGIC && head[1] == 1)
+    if (fread(head, sizeof head, 1, f) == 1 && head[0] == MAGIC && (head[1] == 1 || head[1] == 2))
         for (uint32_t i = 0; i < head[2] && i < MAX_MAPS; i++) {
-            uint32_t a[2];
-            if (fread(a, sizeof a, 1, f) != 1 || a[1] > GRID * GRID) break;
+            uint32_t a[3] = { 0, 0, 0 };
+            if (fread(a, 4, head[1] == 2 ? 3 : 2, f) != (head[1] == 2 ? 3u : 2u) || a[1] > GRID * GRID) break;
             Area *ar = find(a[0], true);
             if (!ar) break;
+            ar->world_w = (uint16_t)(a[2] >> 16); ar->world_h = (uint16_t)a[2];
             bool ok = true;
             for (uint32_t k = 0; k < a[1] && ok; k++) {
                 uint32_t c;

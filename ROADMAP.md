@@ -106,7 +106,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 | Item | Status |
 |---|---|
-| Interactive world map, discovered locations, completion | Started: GAME > Map fills in each map as you explore (`runtime/src/automap.c`, `automap.bin`); a world overview, markers and completion still to do |
+| Interactive world map, discovered locations, completion | Started: Paused > Map fills in each area as you explore (`runtime/src/automap.c`, `automap.bin`) and shows how much of the area is explored (its size from the camera's limits) and how many areas were visited; a world overview and markers still to do |
 | Bestiary with defeat counts | Done: Paused > Stats shows every enemy type defeated, its picture (its own sprites, kept while it is on screen) and how many (`bestiary.bin`); names would need the types matched to the manual |
 | Photo mode: pause, hide HUD, resolution, effects | Done: Paused > Photo mode or F9: the game freezes, H / Y hides the HUD (its sprites), Enter / A saves a PNG at the internal resolution with every effect to `screenshots/` |
 | Photo mode camera zoom / free camera | Hard: only what the game has loaded in video memory can be shown |

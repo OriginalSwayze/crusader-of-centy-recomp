@@ -693,7 +693,13 @@ static void draw_side(float t, float alpha) {
             ui_draw_text(none, FONT, 16, 400, 0, PIC_X + (PIC_W - w) / 2, PIC_Y + PIC_H / 2 - 10, C_DIM, C_DIM, alpha);
         }
         outline(PIC_X, PIC_Y, PIC_W, PIC_H, C_LINE, alpha);
-        draw_wrapped(about(it), PIC_X, TEXT_Y, PIC_W, 15.5f, C_DIM, alpha);
+        int pc, seen;
+        automap_progress(&pc, &seen);
+        char line[96];
+        if (pc >= 0) snprintf(line, sizeof line, "%d%% of this area explored  \xC2\xB7  %d area%s visited", pc, seen, seen == 1 ? "" : "s");
+        else snprintf(line, sizeof line, "%d area%s visited", seen, seen == 1 ? "" : "s");
+        ui_draw_text(line, FONT_SB, 16, 600, 0, PIC_X, TEXT_Y, C_TEXT, C_TEXT, alpha);
+        draw_wrapped(about(it), PIC_X, TEXT_Y + 28, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_STATS) {
