@@ -157,6 +157,113 @@ static void splashes(const HdFrame *f, bool world, float cam_x, float cam_y) {
     }
 }
 
+/* ---- Bestiary ---------------------------------------------------------------------------- */
+#define BEAST_MAX 96
+#define BEAST_MAGIC 0x54534542u          /* "BEST" */
+typedef struct { uint16_t type; uint8_t w, h; uint32_t defeated; uint32_t px[BEAST_PX * BEAST_PX]; } Beast;
+static Beast beasts[BEAST_MAX];
+static int nbeasts;
+static bool beasts_dirty;
+/* Each slot's enemy as last seen, kept only while its type has no picture yet. */
+static uint32_t slot_pic[SLOTS][BEAST_PX * BEAST_PX];
+static uint8_t slot_pw[SLOTS], slot_ph[SLOTS];
+static uint16_t slot_pic_type[SLOTS];
+
+static Beast *beast_of(uint16_t type, bool make) {
+    for (int i = 0; i < nbeasts; i++) if (beasts[i].type == type) return &beasts[i];
+    if (!make || nbeasts >= BEAST_MAX) return NULL;
+    Beast *b = &beasts[nbeasts++];
+    memset(b, 0, sizeof *b);
+    b->type = type;
+    return b;
+}
+
+/* The sprites drawn over the enemy's middle (sx, sy on the screen), put together front over
+ * back, if they fit in BEAST_PX square. The player's own sprites are left out. */
+static void capture(const HdFrame *f, int slot, uint16_t type, int sx, int sy) {
+    int x0 = 1 << 20, y0 = 1 << 20, x1 = -(1 << 20), y1 = -(1 << 20), found = 0;
+    for (int k = 0; k < 80; k++) {
+        const HdSprite *q = &f->sprites[k];
+        if (!q->drawn || q->player) continue;
+        if (sx < q->x - 2 || sx >= q->x + q->w + 2 || sy < q->y - 2 || sy >= q->y + q->h + 2) continue;
+        if (q->x < x0) x0 = q->x;
+        if (q->y < y0) y0 = q->y;
+        if (q->x + q->w > x1) x1 = q->x + q->w;
+        if (q->y + q->h > y1) y1 = q->y + q->h;
+        found++;
+    }
+    if (!found || x1 - x0 > BEAST_PX || y1 - y0 > BEAST_PX) return;
+    uint32_t *out = slot_pic[slot];
+    memset(out, 0, sizeof slot_pic[slot]);
+    for (int rank = 79; rank >= 0; rank--)          /* back to front */
+        for (int k = 0; k < 80; k++) {
+            const HdSprite *q = &f->sprites[k];
+            if (!q->drawn || q->player || q->rank != rank) continue;
+            if (sx < q->x - 2 || sx >= q->x + q->w + 2 || sy < q->y - 2 || sy >= q->y + q->h + 2) continue;
+            for (int y = 0; y < q->h; y++)
+                for (int x = 0; x < q->w; x++) {
+                    uint32_t p = q->px[y * 32 + x];
+                    if (!((p >> 16) & 0x0F)) continue;
+                    out[(q->y - y0 + y) * BEAST_PX + (q->x - x0 + x)] = 0xFF000000u | vdp_color_rgb((uint16_t)p);
+                }
+        }
+    slot_pw[slot] = (uint8_t)(x1 - x0); slot_ph[slot] = (uint8_t)(y1 - y0);
+    slot_pic_type[slot] = type;
+}
+
+static void beast_defeated(int slot, uint16_t type) {
+    Beast *b = beast_of(type, true);
+    if (!b) return;
+    b->defeated++;
+    if (!b->w && slot_pic_type[slot] == type && slot_pw[slot]) {
+        b->w = slot_pw[slot]; b->h = slot_ph[slot];
+        memcpy(b->px, slot_pic[slot], sizeof b->px);
+    }
+    beasts_dirty = true;
+}
+
+static int beast_order[BEAST_MAX];
+int combat_beast_count(void) {
+    int n = 0;
+    for (int i = 0; i < nbeasts; i++) beast_order[n++] = i;
+    for (int i = 1; i < n; i++)                     /* most defeated first */
+        for (int j = i; j > 0 && beasts[beast_order[j]].defeated > beasts[beast_order[j - 1]].defeated; j--) {
+            int t = beast_order[j]; beast_order[j] = beast_order[j - 1]; beast_order[j - 1] = t;
+        }
+    return n;
+}
+
+bool combat_beast(int i, uint32_t *defeated, int *w, int *h, const uint32_t **px) {
+    if (i < 0 || i >= nbeasts) return false;
+    const Beast *b = &beasts[beast_order[i]];
+    *defeated = b->defeated; *w = b->w; *h = b->h; *px = b->px;
+    return true;
+}
+
+static void beasts_load(const char *base_dir) {
+    char path[1100];
+    snprintf(path, sizeof path, "%sbestiary.bin", base_dir);
+    FILE *f = fopen(path, "rb");
+    if (!f) return;
+    uint32_t head[3];
+    if (fread(head, 4, 3, f) == 3 && head[0] == BEAST_MAGIC && head[1] == sizeof(Beast) && head[2] <= BEAST_MAX)
+        nbeasts = (int)fread(beasts, sizeof(Beast), head[2], f);
+    fclose(f);
+}
+
+static void beasts_save(const char *base_dir) {
+    if (!beasts_dirty) return;
+    char path[1100];
+    snprintf(path, sizeof path, "%sbestiary.bin", base_dir);
+    FILE *f = fopen(path, "wb");
+    if (!f) return;
+    uint32_t head[3] = { BEAST_MAGIC, (uint32_t)sizeof(Beast), (uint32_t)nbeasts };
+    fwrite(head, 4, 3, f);
+    fwrite(beasts, sizeof(Beast), (size_t)nbeasts, f);
+    fclose(f);
+    beasts_dirty = false;
+}
+
 void combat_clear(void) { have_last = false; nnumbers = 0; nparts = 0; for (int i = 0; i < SLOTS; i++) slots[i].bar_age = -1; }
 
 static void rumble(float low, float high, int ms) {
@@ -227,11 +334,17 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         }
         if (type) { s->x = x; s->y = y; }
         if (hp > s->max) s->max = hp;
+        /* An enemy whose type has no picture yet: keep how it looks while it is on screen. */
+        if (world && type && hp && hp < 0x8000 && !defeated) {
+            Beast *b = beast_of(type, false);
+            if (!b || !b->w) capture(f, i, type, (int)(x - cam_x), (int)(y - cam_y));
+        }
         if (hp < s->hp && world) {
             int d = s->hp - hp;
             if (combat_log) printf("hit: object %06X type %04X health %u -> %u (%d points)%s\n", 0xFF0000 + a, s->type, s->hp, hp, points(d), defeated ? ", defeated" : "");
             if (settings.combat_info) add_number(s, points(d), defeated && d >= s->max);
             if (live || combat_headless) spark_burst(s->x, s->y, defeated);
+            if (defeated && (live || combat_headless)) beast_defeated(i, s->type);
             if (live) {
                 total.dealt += (uint32_t)points(d);
                 if ((uint32_t)points(d) > total.biggest) total.biggest = (uint32_t)points(d);
@@ -439,6 +552,7 @@ void combat_draw(uint32_t *px, int w, int h, const HdPost *p) {
 
 /* ---- Stats file -------------------------------------------------------------------------- */
 void combat_stats_load(const char *base_dir) {
+    beasts_load(base_dir);
     char path[1100];
     snprintf(path, sizeof path, "%sstats.ini", base_dir);
     FILE *f = fopen(path, "r");
@@ -461,6 +575,7 @@ void combat_stats_load(const char *base_dir) {
 }
 
 void combat_stats_save(const char *base_dir) {
+    beasts_save(base_dir);
     char path[1100];
     snprintf(path, sizeof path, "%sstats.ini", base_dir);
     FILE *f = fopen(path, "w");

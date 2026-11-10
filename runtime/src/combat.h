@@ -23,6 +23,13 @@ bool combat_active(const HdPost *p);
 /* Draws the numbers, bars and timer onto a finished picture. */
 void combat_draw(uint32_t *px, int w, int h, const HdPost *p);
 
+/* The bestiary: every enemy type defeated, with its picture (its sprites as last seen before
+ * the defeat, 0xAARRGGBB, 0 = clear) and how many. Kept in bestiary.bin with the stats.
+ * Entry i of combat_beast_count(), most defeated first. */
+#define BEAST_PX 40
+int  combat_beast_count(void);
+bool combat_beast(int i, uint32_t *defeated, int *w, int *h, const uint32_t **px);
+
 /* Stats: kept in stats.ini next to the game, over all sessions. */
 void combat_stats_load(const char *base_dir);
 void combat_stats_save(const char *base_dir);

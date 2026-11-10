@@ -188,9 +188,13 @@ static int confirm_item;
 
 static const Page *cur(void) { return page == PAGE_HOME ? (launcher ? &home_launcher : &home_pause) : &pages[page]; }
 static bool big_rows(void) { return page == PAGE_HOME || page == PAGE_SETTINGS; }
-static float row_h(void) { return big_rows() ? 52 : 44; }
 /* The launcher's home starts under the logo. */
 static float list_y(void) { return launcher && page == PAGE_HOME ? 300 : LIST_Y; }
+/* Rows are closer together on a page that would otherwise run into the key hints. */
+static float row_h(void) {
+    float h = big_rows() ? 52 : 44, fit = (648 - list_y()) / (float)(cur()->count > 0 ? cur()->count : 1);
+    return h < fit ? h : fit;
+}
 static float row_y(int i) { return list_y() + i * row_h(); }
 static const Item *item_at(int i) { return i >= 0 && i < cur()->count ? &cur()->items[i] : NULL; }
 
@@ -700,11 +704,41 @@ static void draw_side(float t, float alpha) {
             char *tab_at = strchr(lines[i], '\t');
             if (!tab_at) continue;
             *tab_at = 0;
-            if (i == 2) { ui_fill_rect(PIC_X, y + 4, PIC_W, 1, C_LINE, alpha); y += 22; }
-            ui_draw_text(lines[i], FONT, 17, 400, 0, PIC_X, y, C_DIM, C_DIM, alpha);
-            float vw = ui_text_width(tab_at + 1, FONT_SB, 17, 600, 0);
-            ui_draw_text(tab_at + 1, FONT_SB, 17, 600, 0, PIC_X + PIC_W - vw, y, C_TEXT, C_TEXT, alpha);
-            y += 38;
+            if (i == 2) { ui_fill_rect(PIC_X, y + 2, PIC_W, 1, C_LINE, alpha); y += 14; }
+            ui_draw_text(lines[i], FONT, 16, 400, 0, PIC_X, y, C_DIM, C_DIM, alpha);
+            float vw = ui_text_width(tab_at + 1, FONT_SB, 16, 600, 0);
+            ui_draw_text(tab_at + 1, FONT_SB, 16, 600, 0, PIC_X + PIC_W - vw, y, C_TEXT, C_TEXT, alpha);
+            y += 29;
+        }
+        /* The bestiary: each enemy type defeated, its picture and how many, most first. */
+        y += 10;
+        ui_draw_text("BESTIARY", FONT_SB, 12, 600, 2.5f, PIC_X, y, C_GOLD, C_GOLD, alpha);
+        y += 26;
+        int nb = combat_beast_count();
+        if (!nb) {
+            draw_wrapped("Enemies you defeat appear here, with how many of each.", PIC_X, y, PIC_W, 15.5f, C_FAINT, alpha);
+            return;
+        }
+        const float cell = 68, gap = (PIC_W - 8 * cell) / 7;
+        for (int i = 0; i < nb && i < 16; i++) {
+            uint32_t count; int bw, bh; const uint32_t *px;
+            if (!combat_beast(i, &count, &bw, &bh, &px)) break;
+            float cx = PIC_X + (i % 8) * (cell + gap), cy = y + (i / 8) * (cell + 30);
+            ui_panel(cx, cy, cell, cell, 8, rgb_hex(0x16211A), rgb_hex(0x111A14), alpha, C_LINE, alpha);
+            if (bw && bh) {
+                int k = (int)((cell - 12) / (bw > bh ? bw : bh));
+                if (k < 1) k = 1;
+                float ox = cx + (cell - bw * k) / 2, oy = cy + (cell - bh * k) / 2;
+                for (int py = 0; py < bh; py++)
+                    for (int pxx = 0; pxx < bw; pxx++) {
+                        uint32_t c = px[py * BEAST_PX + pxx];
+                        if (c >> 24) ui_fill_rect(ox + pxx * k, oy + py * k, (float)k, (float)k, rgb_hex(c & 0xFFFFFF), alpha);
+                    }
+            } else ui_draw_text("?", FONT_SB, 24, 600, 0, cx + cell / 2 - 6, cy + cell / 2 - 16, C_FAINT, C_FAINT, alpha);
+            char num[16];
+            snprintf(num, sizeof num, "\xC3\x97%u", count);
+            float nw = ui_text_width(num, FONT_SB, 14, 600, 0);
+            ui_draw_text(num, FONT_SB, 14, 600, 0, cx + (cell - nw) / 2, cy + cell + 5, C_TEXT, C_TEXT, alpha);
         }
         return;
     }
