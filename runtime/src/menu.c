@@ -10,6 +10,7 @@
 #include "preview.h"
 #include "launcher_scene.h"
 #include "combat.h"
+#include "automap.h"
 #include "foil.h"
 #include "genesis.h"
 #include "savestate.h"
@@ -20,7 +21,7 @@
 #include <string.h>
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION } ItemKind;
-enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED, ACT_STATS };
+enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED, ACT_STATS, ACT_MAP };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 #define TABS 6
@@ -28,7 +29,7 @@ typedef struct { ItemKind kind; const char *label; int id; } Item;
 static const char *const tab_names[TABS] = { "GAME", "DISPLAY", "EFFECTS", "PLAY", "MORE", "SPEED" };
 static const Item tab_items[TABS][MAX_ROWS] = {
     { { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
-      { ITEM_ACTION, "Stats", ACT_STATS },
+      { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Stats", ACT_STATS },
       { ITEM_OPTION, "Rewind", OPT_REWIND }, { ITEM_OPTION, "Fast-forward", OPT_FAST },
       { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } },
     { { ITEM_OPTION, "Integer scaling", OPT_INTEGER }, { ITEM_OPTION, "Internal resolution", OPT_INTERNAL },
@@ -46,7 +47,7 @@ static const Item tab_items[TABS][MAX_ROWS] = {
       { ITEM_OPTION, "GPU effects", OPT_GPU }, { ITEM_OPTION, "Merged finishing pass", OPT_MERGED },
       { ITEM_OPTION, "AVX2 pixel loops", OPT_AVX2 }, { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } },
 };
-static const int tab_count[TABS] = { 8, 7, 2, 5, 8, 6 };
+static const int tab_count[TABS] = { 9, 7, 2, 5, 8, 6 };
 
 /* What each option and action does, for the card on the right. */
 static const char *about(const Item *it) {
@@ -57,6 +58,7 @@ static const char *about(const Item *it) {
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
         case ACT_STATS: return NULL;
+        case ACT_MAP: return "Fills in as you explore: everything that has been on screen on this map, with your place blinking. Each map keeps its own, saved between sessions.";
         case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
         case ACT_PRESET_ENHANCED: return "The recommended enhancements in one go: the art redrawn at 3x with rounded edges and light sharpening, a soft glow, the HDR look, no sprite flicker and no slowdown. Difficulty and cheats stay as you set them.";
         }
@@ -356,7 +358,7 @@ static MenuAction act(int dir, bool activate) {
         if (!activate) return MENU_NONE;
         if (it->id == ACT_RESUME) return MENU_CLOSE;
         if (it->id == ACT_CONTROLS) { sound(1); controls_open(); return MENU_NONE; }
-        if (it->id == ACT_STATS) return MENU_NONE;     /* shown on the card */
+        if (it->id == ACT_STATS || it->id == ACT_MAP) return MENU_NONE;     /* shown on the card */
         if (it->id == ACT_PRESET_ORIGINAL || it->id == ACT_PRESET_ENHANCED) {
             if (it->id == ACT_PRESET_ORIGINAL) settings_preset_original();
             else settings_preset_enhanced();
@@ -581,6 +583,18 @@ static void draw_card(float t, float alpha) {
     ui_holo_bar(x, y + 24, 40 * in, 2, t, .85f * alpha);
     y += 44;
     if (it->kind == ITEM_SLOT) { draw_slot(x, y, w, t, alpha); return; }
+    if (it->kind == ITEM_ACTION && it->id == ACT_MAP) {
+        float mh = CARD_H - 44 - 24 - 110;
+        ui_fill_rect(x, y, w, mh, rgb_hex(0x07080B), .55f * alpha);
+        if (!automap_draw(x + 6, y + 6, w - 12, mh - 12, t, alpha)) {
+            const char *none = "Nothing of this map seen yet.";
+            float nw = ui_text_width(none, "Segoe UI", 15, 400, 0);
+            ui_draw_text(none, "Segoe UI", 15, 400, 0, x + (w - nw) / 2, y + mh / 2 - 10, C_DIM, C_DIM, alpha);
+        }
+        ui_panel(x - 1, y - 1, w + 2, mh + 2, 4, rgb(0, 0, 0), rgb(0, 0, 0), 0, rgb_hex(0xD9B567), .5f * alpha);
+        draw_wrapped(about(it), x, y + mh + 18, w, 15.5f, C_LABEL, alpha);
+        return;
+    }
     if (it->kind == ITEM_ACTION && it->id == ACT_STATS) {
         char lines[12][64];
         int n = combat_stats_lines(lines, 12);

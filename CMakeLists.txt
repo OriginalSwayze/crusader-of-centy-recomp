@@ -95,6 +95,7 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/cheats.c
   runtime/src/unported.c
   runtime/src/combat.c
+  runtime/src/automap.c
   runtime/src/hd.c
   runtime/src/filter.c
   runtime/src/input.c

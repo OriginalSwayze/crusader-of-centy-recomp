@@ -18,6 +18,7 @@
 #include "texpack.h"
 #include "menu.h"
 #include "combat.h"
+#include "automap.h"
 #include "savestate.h"
 #include "ui.h"
 #include "text.h"
@@ -367,6 +368,7 @@ static void after_frame(bool live) {
     hd_frame_done();
     HdPost here = finishing(1, 0);
     combat_frame(&hd_frame, here.world, here.cam_x, here.cam_y, live);
+    automap_frame(&hd_frame, here.world, here.cam_x, here.cam_y);
 }
 
 /* The ROM to play when none is set or it no longer loads: this build's versions in the rom
@@ -912,6 +914,7 @@ int main(int argc, char **argv) {
      * the last picture as the window shows it is saved, with the speed state. */
     if (window_test && load_from && !savestate_load(load_from)) fprintf(stderr, "could not load slot %d\n", load_from);
     combat_stats_load(base_dir);
+    automap_load(base_dir);
     while (running) {
         SDL_Event e;
         int ww, wh;
@@ -955,6 +958,7 @@ int main(int argc, char **argv) {
                 preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);
                 preview_save(base_dir);         /* the frame the launcher's previews will show */
                 combat_stats_save(base_dir);
+                automap_save(base_dir);
                 menu_open(framebuffer, frame_width(), vdp_screen_height(), FB_W, r.x, r.y, r.w, r.h, ww, wh,
                           win_w ? (float)ww / win_w : 1);
             }
@@ -1165,6 +1169,7 @@ int main(int argc, char **argv) {
     save_coverage();
     save_sram();
     combat_stats_save(base_dir);
+    automap_save(base_dir);
     if (!menu_is_open()) {
         HdPost here = finishing(1, 0);
         preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);

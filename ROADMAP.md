@@ -26,6 +26,7 @@ Status markers:
 | Object list | `$FFC800`, 128 records of 0x40: +0 type, +2 health (sixteenths), +4 X, +8 Y (16.16, middle), +20 hit timer, +24 damage waiting | combat info, stats |
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
+| Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
 (bigger hits). The Japanese and Korean addresses are found automatically
@@ -101,7 +102,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 | Item | Status |
 |---|---|
-| Interactive world map, discovered locations, completion | Map: the Beyond Oasis auto-map needs Centy's map number and camera |
+| Interactive world map, discovered locations, completion | Started: GAME > Map fills in each map as you explore (`runtime/src/automap.c`, `automap.bin`); a world overview, markers and completion still to do |
 | Bestiary with defeat counts | Map: enemy types |
 | Photo mode: pause, hide HUD, resolution, effects | Build: pause and full-resolution screenshots are close; hiding the HUD needs to know which layer it is on |
 | Photo mode camera zoom / free camera | Hard: only what the game has loaded in video memory can be shown |
@@ -112,8 +113,8 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Confirm combat info in a real fight; find the map number and story flags.
-2. Bring back the Beyond Oasis features that need those: the auto-map, smooth motion.
+1. Confirm combat info in a real fight; find the story flags.
+2. Smooth motion (needs which sprites belong to which object).
 3. Widescreen camera (patch the map streaming and camera clamp).
 4. World effects that need the camera: weather, vegetation, shadows, day/night.
 5. Companion pages, photo mode, then the larger modes (New Game+, Boss Rush).
