@@ -96,7 +96,8 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Separate music / sound effects / ambience volume | Hard: the sound driver mixes music and effects on one chip; needs the driver's channel use mapped |
 | Configurable vibration | Done: PLAY > Rumble (off, light, strong) on hits, defeats and being hit |
 | HUD scaling / positioning | Hard: the HUD is drawn by the game into the same picture |
-| Enhanced interface theme, high-resolution inventory | Hard: the inventory is the game's own screen; would be a full redraw from its RAM |
+| Interface in the game's own look (launcher, pause menu, controls) | Done: dialogue-box frames, apple switches, sword cursor, storybook headings, animated launcher (`theme.c`) |
+| Enhanced in-game inventory, high-resolution inventory | Hard: the inventory is the game's own screen; would be a full redraw from its RAM |
 | Original interface theme | Done: the game's own interface is untouched |
 | Multiple controller profiles, Steam Input | Build / works: SDL reads Steam Input's virtual controller |
 

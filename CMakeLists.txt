@@ -87,8 +87,6 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/rewind.c
   runtime/src/png.c
   runtime/src/text.c
-  runtime/src/launcher_scene.c
-  runtime/src/foil.c
   runtime/src/ui.c
   runtime/src/menu.c
   runtime/src/savestate.c
@@ -97,6 +95,7 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/combat.c
   runtime/src/automap.c
   runtime/src/fx.c
+  runtime/src/theme.c
   runtime/src/hd.c
   runtime/src/filter.c
   runtime/src/input.c

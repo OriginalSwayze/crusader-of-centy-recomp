@@ -377,6 +377,7 @@ static void after_frame(bool live) {
 /* The ROM to play when none is set or it no longer loads: this build's versions in the rom
  * folder next to the game (where Setup puts them; each is remembered as its version's ROM,
  * the last found is played), else the player picks one when `ask`. False if there is none. */
+static int pick_rom(void);
 static bool find_rom(bool ask) {
     char dir[1100];
     path_in_base(dir, sizeof dir, "rom");
@@ -397,6 +398,17 @@ static bool find_rom(bool ask) {
         if (found) return true;
     }
     if (!ask) return false;
+    return pick_rom() != 0;
+#else
+    (void)dir; (void)ask;
+    return false;
+#endif
+}
+
+/* The file dialog for a ROM: 1 a version this build has (now the one played), 0 cancelled,
+ * -1 some other file (settings.rom_path names it, so the message can say what is wrong). */
+static int pick_rom(void) {
+#ifdef _WIN32
     wchar_t file[1024] = L"";
     OPENFILENAMEW ofn = { 0 };
     ofn.lStructSize = sizeof ofn;
@@ -405,16 +417,159 @@ static bool find_rom(bool ask) {
     ofn.nMaxFile = 1024;
     ofn.lpstrTitle = L"Choose your Crusader of Centy / Ragnacenty ROM";
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-    if (!GetOpenFileNameW(&ofn)) return false;
+    if (!GetOpenFileNameW(&ofn)) return 0;
     char path[1024];
     WideCharToMultiByte(CP_UTF8, 0, file, -1, path, sizeof path, NULL, NULL);
     for (char *p = path; *p; p++) if (*p == '\\') *p = '/';
-    if (!settings_use_rom(path)) snprintf(settings.rom_path, sizeof settings.rom_path, "%s", path);  /* the message says what is wrong */
-    return true;
+    if (settings_use_rom(path)) return 1;
+    snprintf(settings.rom_path, sizeof settings.rom_path, "%s", path);
+    return -1;
 #else
-    (void)dir; (void)ask;
-    return false;
+    return 0;
 #endif
+}
+
+/* ---- The launcher ---------------------------------------------------------------------- *
+ * The menu in launcher mode (menu.c) over the game's own title screen. The game runs to its
+ * title once (Start pressed to skip the opening story), and that picture and a snapshot of
+ * the machine there are cached per version in title.cache next to the game, so later
+ * starts reach it at once. While the launcher is up the game keeps running at its title
+ * underneath, unseen, so its title music plays; Play resets the machine for the game. */
+static int launcher_autoplay;           /* --launcher-test N: Play is chosen after N frames (tests) */
+static uint32_t title_fb[FB_W * FB_H];
+static int title_w, title_h;
+#define TITLE_MAGIC 0x32544343u          /* "CCT2" */
+#define TITLE_FRAMES 1700                /* the title is up and still by then (from about 1500) */
+
+static bool reach_title(void) {
+    static uint8_t snap[STATE_MAX];
+    char path[1100];
+    game_path_in_base(path, sizeof path, "title.cache");
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        uint32_t head[4] = { 0 };
+        bool ok = fread(head, sizeof head, 1, f) == 1 && head[0] == TITLE_MAGIC && head[1] <= FB_W && head[2] <= FB_H &&
+                  head[3] <= STATE_MAX;
+        if (ok) ok = fread(title_fb, 4, (size_t)head[1] * head[2], f) == (size_t)head[1] * head[2];
+        if (ok) ok = fread(snap, 1, head[3], f) == head[3];
+        fclose(f);
+        machine_reset();
+        /* A snapshot carries save RAM: the player's saves now stay, whatever it held. */
+        static uint8_t keep[SRAM_SIZE];
+        bool dirty = bus.sram_dirty;
+        memcpy(keep, bus.sram, SRAM_SIZE);
+        if (ok && state_load(snap, head[3])) {
+            memcpy(bus.sram, keep, SRAM_SIZE);
+            bus.sram_dirty = dirty;
+            title_w = (int)head[1]; title_h = (int)head[2];
+            return true;
+        }
+        memcpy(bus.sram, keep, SRAM_SIZE);
+        bus.sram_dirty = dirty;
+    }
+    /* Not cached (or from another build): run the game to its title. */
+    machine_reset();
+    for (int fr = 0; fr < TITLE_FRAMES; fr++) {
+        pad_state[0] = (fr >= 1000 && fr < 1004) ? PAD_START : 0;
+        machine_run_frame(fr == TITLE_FRAMES - 1 ? framebuffer : NULL, FB_W);
+    }
+    pad_state[0] = 0;
+    title_w = frame_width();
+    title_h = vdp_screen_height();
+    for (int y = 0; y < title_h; y++) memcpy(title_fb + (size_t)y * title_w, framebuffer + (size_t)y * FB_W, (size_t)title_w * 4);
+    size_t len = state_save(snap, sizeof snap);
+    f = fopen(path, "wb");
+    if (f && len) {
+        uint32_t head[4] = { TITLE_MAGIC, (uint32_t)title_w, (uint32_t)title_h, (uint32_t)len };
+        fwrite(head, sizeof head, 1, f);
+        fwrite(title_fb, 4, (size_t)title_w * title_h, f);
+        fwrite(snap, 1, len, f);
+    }
+    if (f) fclose(f);
+    return true;
+}
+
+/* Shows the launcher in the window until Play (true) or Quit (false). */
+static bool run_launcher(SDL_Window *win, SDL_Renderer *ren, SDL_AudioDeviceID audio, const char *ini) {
+    reach_title();
+    int ww, wh, win_w, win_h;
+    SDL_GetRendererOutputSize(ren, &ww, &wh);
+    SDL_GetWindowSize(win, &win_w, &win_h);
+    menu_open_launcher(title_fb, title_w, title_h, title_w, ww, wh, win_w ? (float)ww / win_w : 1);
+    SDL_Texture *tex = NULL;
+    int tw = 0, th = 0;
+    Uint64 freq = SDL_GetPerformanceFrequency(), start = SDL_GetPerformanceCounter(), next = start;
+    SDL_SetWindowTitle(win, "Crusader of Centy");
+    bool play = false, done = false;
+    int frames = 0;
+    while (!done) {
+        if (launcher_autoplay && ++frames >= launcher_autoplay) { play = true; break; }
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            pads_event(&e);
+            if (e.type == SDL_QUIT) { done = true; break; }
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F11) {
+                settings.fullscreen = !settings.fullscreen;
+                SDL_SetWindowFullscreen(win, settings.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                continue;
+            }
+            bool reopen = false;
+            switch (menu_event(&e)) {
+            case MENU_PLAY: play = done = true; break;
+            case MENU_QUIT: done = true; break;
+            case MENU_ROM:
+                if (pick_rom() == 1 && switch_version()) { apply_settings(); reach_title(); reopen = true; }
+                settings_save(ini);
+                break;
+            case MENU_SETTINGS:
+                if (switch_version()) { apply_settings(); reach_title(); reopen = true; }
+                apply_settings();
+                SDL_SetWindowFullscreen(win, settings.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                settings_save(ini);
+                break;
+            default: break;
+            }
+            if (reopen) {
+                SDL_GetRendererOutputSize(ren, &ww, &wh);
+                menu_open_launcher(title_fb, title_w, title_h, title_w, ww, wh, 1);
+            }
+        }
+        if (done) break;
+        int ow, oh;
+        SDL_GetRendererOutputSize(ren, &ow, &oh);
+        if (ow != ww || oh != wh) {         /* resized: rebuild the backdrop */
+            ww = ow; wh = oh;
+            SDL_GetWindowSize(win, &win_w, &win_h);
+            menu_open_launcher(title_fb, title_w, title_h, title_w, ww, wh, win_w ? (float)ww / win_w : 1);
+        }
+        /* The game at its title, unseen, for the music. */
+        pad_state[0] = 0;
+        machine_run_frame(NULL, FB_W);
+        if (audio && SDL_GetQueuedAudioSize(audio) < (Uint32)sound_out_rate * 4 / 10) {
+            int v = settings.volume * 256 / 100;
+            for (int i = 0; i < sound_out_count * 2; i++) sound_out[i] = (int16_t)(sound_out[i] * v / 256);
+            SDL_QueueAudio(audio, sound_out, (Uint32)sound_out_count * 4);
+        }
+        menu_render((double)(SDL_GetPerformanceCounter() - start) / freq);
+        if (!tex || tw != ui_w || th != ui_h) {
+            if (tex) SDL_DestroyTexture(tex);
+            tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, ui_w, ui_h);
+            tw = ui_w; th = ui_h;
+        }
+        SDL_UpdateTexture(tex, NULL, ui_px, ui_w * 4);
+        SDL_RenderClear(ren);
+        SDL_RenderCopy(ren, tex, NULL, NULL);
+        SDL_RenderPresent(ren);
+        next += (Uint64)(machine_frame_s() * freq);
+        Uint64 now = SDL_GetPerformanceCounter();
+        if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / freq));
+        else next = now;
+    }
+    if (tex) SDL_DestroyTexture(tex);
+    menu_close_now();
+    if (audio) SDL_ClearQueuedAudio(audio);
+    machine_reset();                    /* the game starts from power on */
+    return play;
 }
 
 void console_attach(void);           /* console.c */
@@ -451,6 +606,10 @@ int main(int argc, char **argv) {
     int switch_at = -1;
     const char *switch_to = NULL;
     bool rom_from_args = false;         /* a ROM path was given on the command line */
+    bool no_launcher = false;           /* --no-launcher: straight into the game this time */
+    const char *launcher_shot = NULL;   /* --launcher-shot F.png W H TAB ROW T */
+    int launcher_w = 1920, launcher_h = 1080, launcher_tab = 0, launcher_row = 0;
+    double launcher_t = 1;
     bool test_overrides = false;        /* settings overridden on the command line: don't save them */
     const char *hd_shot = NULL;
     int bench = 0;                      /* --bench N */
@@ -554,6 +713,16 @@ int main(int argc, char **argv) {
             menu_h = atoi(argv[++i]);
         }
         else if (!strcmp(argv[i], "--controls-shot")) controls_shot = true;   /* with --menu-shot: the Controls page */
+        else if (!strcmp(argv[i], "--no-launcher")) no_launcher = true;
+        else if (!strcmp(argv[i], "--launcher-test") && i + 1 < argc) launcher_autoplay = atoi(argv[++i]);   /* with --window-test */
+        else if (!strcmp(argv[i], "--launcher-shot") && i + 6 < argc) {
+            /* --launcher-shot F.png W H TAB ROW T: the launcher at W x H with tab TAB, row ROW
+             * (-1: the tab bar) selected, T seconds in (with --headless 1). */
+            launcher_shot = argv[++i];
+            launcher_w = atoi(argv[++i]); launcher_h = atoi(argv[++i]);
+            launcher_tab = atoi(argv[++i]); launcher_row = atoi(argv[++i]);
+            launcher_t = atof(argv[++i]);
+        }
         else if (!strcmp(argv[i], "--save-preview")) save_preview = true;
         else if (!strcmp(argv[i], "--menu-tab") && i + 2 < argc) { menu_tab = atoi(argv[++i]); menu_row = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--input-check") && i + 1 < argc) {
@@ -609,6 +778,16 @@ int main(int argc, char **argv) {
     machine_reset();
     rewind_reset(settings.rewind ? (size_t)settings.rewind_mb << 20 : 0);
 
+    if (headless_frames && launcher_shot) {
+        reach_title();
+        ui_begin(launcher_w, launcher_h);
+        menu_open_launcher(title_fb, title_w, title_h, title_w, launcher_w, launcher_h, 1);
+        menu_select(launcher_tab, launcher_row);
+        for (int k = 0; k <= 30; k++) menu_render(launcher_t - (30 - k) / 60.0);   /* the springs settle */
+        png_write(launcher_shot, ui_px, ui_w, ui_h, ui_w);
+        printf("launcher %dx%d: %s, title %dx%d\n", ui_w, ui_h, game->name, title_w, title_h);
+        return 0;
+    }
     if (headless_frames) {
         /* --state-check A B: snapshot before frame A, run to B, load the snapshot, run
          * A..B again with the same input; both runs must end in the same state.
@@ -904,6 +1083,15 @@ int main(int argc, char **argv) {
     SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (audio) { sound_out_rate = have.freq; SDL_PauseAudioDevice(audio, 0); }
 
+    if (settings.show_launcher && !no_launcher && (!window_test || launcher_autoplay)) {
+        if (!run_launcher(win, ren, audio, ini)) {
+            if (!test_overrides) settings_save(ini);
+            SDL_Quit();
+            return 0;
+        }
+        rewind_reset(settings.rewind ? (size_t)settings.rewind_mb << 20 : 0);
+    }
+
     /* Short messages (save, load, slot) show in the window title for two seconds. */
     char message[128] = "";
     Uint64 message_until = 0;
@@ -953,7 +1141,7 @@ int main(int argc, char **argv) {
                     menu_close();
                     break;
                 case MENU_QUIT: running = false; break;
-                case MENU_NONE: break;
+                case MENU_NONE: case MENU_PLAY: case MENU_ROM: break;
                 }
             } else if (open_menu) {
                 int win_w, win_h;

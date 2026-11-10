@@ -1,17 +1,18 @@
-/* In-game menu: pauses the game over a blurred, darkened copy of the last frame, on the
- * launcher's dark holofoil steel, with a tab for each group of settings. The card on the
+/* The pause menu and the launcher (menu.h), in the game's own look (theme.c): panels framed
+ * like its dialogue boxes, apples for switches, a sword for the cursor, over a warm,
+ * blurred copy of the game's picture. A tab for each group of settings; the card on the
  * right follows the selected row: the save slot's thumbnail, a live before/after preview of
- * a picture option on the paused frame (preview.c), or what the option does. It moves like
- * the launcher (springs, switches, rows cascading in), dissolves in from the game and back
- * out to it, and every choice makes the game's own menu sound (played by main.c through
- * menu_sound). */
+ * a picture option (preview.c), the map, the stats, the title screen in the launcher, or
+ * what the option does. Springs, rows cascading in, values sliding, and the menu dissolving
+ * in from the game and back out to it. The launcher is the same menu with a START tab (play,
+ * language, ROM) in place of GAME. */
 #include "menu.h"
 #include "controls.h"
 #include "preview.h"
-#include "launcher_scene.h"
 #include "combat.h"
 #include "automap.h"
-#include "foil.h"
+#include "theme.h"
+#include "game.h"
 #include "genesis.h"
 #include "savestate.h"
 #include "settings.h"
@@ -21,7 +22,8 @@
 #include <string.h>
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION } ItemKind;
-enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED, ACT_STATS, ACT_MAP };
+enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED, ACT_STATS, ACT_MAP,
+       ACT_PLAY, ACT_ROM, ACT_EXIT };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 #define TABS 6
@@ -50,6 +52,17 @@ static const Item tab_items[TABS][MAX_ROWS] = {
 };
 static const int tab_count[TABS] = { 9, 7, 4, 5, 8, 6 };
 
+/* The launcher's first tab, in place of GAME. */
+static const Item start_items[] = {
+    { ITEM_ACTION, "Play", ACT_PLAY }, { ITEM_OPTION, "Language", OPT_LANGUAGE },
+    { ITEM_ACTION, "Choose ROM", ACT_ROM }, { ITEM_ACTION, "Controls", ACT_CONTROLS },
+    { ITEM_OPTION, "Show this at startup", OPT_LAUNCHER }, { ITEM_ACTION, "Quit", ACT_EXIT },
+};
+static bool launcher;                   /* opened as the launcher */
+static const Item *ITEMS(int t) { return launcher && t == 0 ? start_items : tab_items[t]; }
+static int COUNT(int t) { return launcher && t == 0 ? (int)(sizeof start_items / sizeof *start_items) : tab_count[t]; }
+static const char *TAB_NAME(int t) { return launcher && t == 0 ? "START" : tab_names[t]; }
+
 /* What each option and action does, for the card on the right. */
 static const char *about(const Item *it) {
     if (it->kind == ITEM_ACTION)
@@ -58,6 +71,9 @@ static const char *about(const Item *it) {
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
+        case ACT_PLAY: return NULL;
+        case ACT_ROM: return "Pick a ROM of Crusader of Centy (USA), or Ragnacenty from Japan or Korea. Each country's cartridge is a language you can switch between; ROMs in the rom folder next to the game are found by themselves.";
+        case ACT_EXIT: return "Closes the game.";
         case ACT_STATS: return NULL;
         case ACT_MAP: return "Fills in as you explore: everything that has been on screen on this map, with your place blinking. Each map keeps its own, saved between sessions.";
         case ACT_PRESET_ORIGINAL: return "Puts every picture, speed and gameplay option back to the cartridge as it was: native resolution, no effects or weather, the original sprite limit, speed and difficulty. Controls, sound, saves and the language stay as they are.";
@@ -77,6 +93,7 @@ static const char *about(const Item *it) {
     case OPT_TEXPACK: return "High-resolution replacements for the game's tiles, from a folder in texture_packs next to the game. None is the original art.";
     case OPT_DUMP: return "Writes every tile shown on screen once to texture_packs/dump, named by its key: the starting point for making a pack.";
     case OPT_REWIND: return "Hold the rewind key to step back in time.";
+    case OPT_LAUNCHER: return "This screen before the game starts. Off starts the game straight away; show_launcher=1 in settings.ini brings it back.";
     case OPT_WEATHER: return "Weather and ambience over the world, never over menus or story screens: leaves drifting on the wind, rain under a grey sky, snow, or fireflies at dusk. Only the picture changes; the game plays as before.";
     case OPT_WATER: return "Streams, lakes and the sea roll with slow swells, foam where they meet the shore and anyone standing in them, glint along the crests and reflect the people and things above them.";
     case OPT_DIFFICULTY: return "How much each hit takes from your apples: Original as the cartridge has it, Easy half, Hard one and a half times, Very hard twice. Fractions carry over to the next hit, so Easy really halves the damage over a fight.";
@@ -146,7 +163,6 @@ static bool open_pending;               /* the opening starts at the next frame 
 static bool confirm_pending;            /* reset/quit asked once, waiting for a second press */
 static int confirm_item;
 static float mouse_x, mouse_y, mouse_t = -1;   /* for the light on the steel (layout units) */
-static FoilSurface panel_surf, card_surf;
 
 #define CLOSE_AFTER .2                   /* seconds the closing takes (CLOSE_S) */
 
@@ -168,7 +184,7 @@ static void tab_state(void) {
 }
 
 static float row_y(int i) { return LIST_Y + i * ROW_H; }
-static const Item *item_at(int i) { return i >= 0 && i < tab_count[tab] ? &tab_items[tab][i] : NULL; }
+static const Item *item_at(int i) { return i >= 0 && i < COUNT(tab) ? &ITEMS(tab)[i] : NULL; }
 
 /* Box blur in place, three passes per axis (close to a Gaussian). */
 static void blur_rgb(uint32_t *px, int w, int h, int r) {
@@ -205,8 +221,8 @@ static void blur_rgb(uint32_t *px, int w, int h, int r) {
     free(tmp);
 }
 
-void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
-               int out_w, int out_h, float window_to_pixels) {
+static void open_common(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
+                        int out_w, int out_h, float window_to_pixels) {
     bool reopen = open_;                /* the window changed size while open, or it was closing: keep the place */
     open_ = true;
     closing_at = -1;
@@ -230,8 +246,8 @@ void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x,
     frame = malloc((size_t)fb_w * fb_h * 4);
     for (int y = 0; y < fb_h; y++) memcpy(frame + (size_t)y * fb_w, fb + (size_t)y * fb_pitch, (size_t)fb_w * 4);
 
-    /* Backdrop: the frame where the game shows it, blurred, darkened into the night, with
-     * the shadows of the steel panel and the card. */
+    /* Backdrop: the frame where the game shows it, blurred and warmed to golden hour, with
+     * the shadows of the panel and the card. */
     free(backdrop);
     backdrop = calloc((size_t)out_w * out_h, 4);
     for (int y = 0; y < game_h; y++)
@@ -243,23 +259,44 @@ void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x,
     free(sharp);
     sharp = malloc((size_t)out_w * out_h * 4);
     if (sharp) memcpy(sharp, backdrop, (size_t)out_w * out_h * 4);
-    blur_rgb(backdrop, out_w, out_h, (int)(9 * ui_s));
-    for (int y = 0; y < out_h; y++)
-        for (int x = 0; x < out_w; x++) {
-            float u = (x - ui_ox) / ui_s, v = (y - ui_oy) / ui_s;
-            float vig = 1 - .35f * smooth(.3f, 1.1f, sqrtf((u - 640) * (u - 640) / (640.f * 640.f) + (v - 360) * (v - 360) / (360.f * 360.f)));
-            Rgb c = scale(unpack(backdrop[y * out_w + x]), .36f * vig);
-            c = mix(c, scale(rgb(.05f, .04f, .09f), vig), .35f);              /* the night's violet */
-            c = add(c, rgb(1, 1, 1), (hashf((uint32_t)(y * out_w + x)) - .5f) * 2.5f / 255);   /* dither against banding */
-            backdrop[y * out_w + x] = pack(c);
-        }
-    foil_shadow_into(backdrop, TAB_X0 + 10, TAB_Y0 + 16, TAB_W0, TAB_H0, 20);
-    foil_shadow_into(backdrop, CARD_X + 10, CARD_Y + 16, CARD_W, CARD_H, 20);
+    if (launcher) theme_landscape(backdrop, out_w, out_h);   /* the launcher's own scene */
+    else {
+        blur_rgb(backdrop, out_w, out_h, (int)(9 * ui_s));
+        theme_grade_backdrop(backdrop, out_w, out_h);
+    }
+    theme_shadow_into(backdrop, TAB_X0 + 8, TAB_Y0 + 12, TAB_W0, TAB_H0, 22);
+    theme_shadow_into(backdrop, CARD_X + 8, CARD_Y + 12, CARD_W, CARD_H, 22);
+}
+
+void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
+               int out_w, int out_h, float window_to_pixels) {
+    if (launcher && open_) open_ = false;   /* from the launcher to the game: a new menu */
+    launcher = false;
+    open_common(fb, fb_w, fb_h, fb_pitch, game_x, game_y, game_w, game_h, out_w, out_h, window_to_pixels);
+}
+
+void menu_open_launcher(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int out_w, int out_h, float window_to_pixels) {
+    if (!launcher) open_ = false;
+    launcher = true;
+    /* The title screen fills the window behind it, at the game's shape. */
+    int gh = out_h, gw = (int)(out_h * (4.0 / 3.0));
+    if (gw < out_w) { gw = out_w; gh = (int)(out_w * .75); }
+    open_common(fb, fb_w, fb_h, fb_pitch, (out_w - gw) / 2, (out_h - gh) / 2, gw, gh, out_w, out_h, window_to_pixels);
+}
+
+bool menu_is_launcher(void) { return open_ && launcher; }
+
+void menu_close_now(void) {
+    open_ = false;
+    closing_at = -1;
+    launcher = false;
+    savestate_info_free(&slot_info);
+    slot_info_for = -1;
 }
 
 void menu_select(int k, int row) {
     tab = tab_from = (k % TABS + TABS) % TABS;
-    selected = row < -1 ? -1 : row >= tab_count[tab] ? tab_count[tab] - 1 : row;
+    selected = row < -1 ? -1 : row >= COUNT(tab) ? COUNT(tab) - 1 : row;
     hl_y = row_y(selected < 0 ? 0 : selected);
     opened_at = tab_at = selected_at = -10;
     open_pending = false;
@@ -283,7 +320,7 @@ enum { HIT_TAB0 = 100 };
 static int hit_test(float mx, float my) {
     for (int k = 0; k < TABS; k++)
         if (mx >= TABS_X + k * TABW && mx < TABS_X + (k + 1) * TABW && my >= TABS_Y && my < TABS_Y + TABS_H) return HIT_TAB0 + k;
-    for (int i = 0; i < tab_count[tab]; i++) {
+    for (int i = 0; i < COUNT(tab); i++) {
         float y = row_y(i);
         if (mx >= LIST_X - 14 && mx <= LIST_R + 8 && my >= y && my < y + ROW_H) return i;
     }
@@ -299,7 +336,7 @@ static void select_row(int i) {
 }
 
 static void move(int dir) {
-    int n = tab_count[tab] + 1;         /* the tab bar, then the rows */
+    int n = COUNT(tab) + 1;         /* the tab bar, then the rows */
     select_row(settings_cycle(selected + 1, n, dir) - 1);
 }
 
@@ -311,7 +348,7 @@ static void open_tab(int k) {
     tab_at = now;
     selected_at = now;
     snap = true;
-    if (selected >= tab_count[tab]) selected = tab_count[tab] - 1;
+    if (selected >= COUNT(tab)) selected = COUNT(tab) - 1;
     confirm_pending = false;
     sound(0);
 }
@@ -360,6 +397,9 @@ static MenuAction act(int dir, bool activate) {
     case ITEM_ACTION:
         if (!activate) return MENU_NONE;
         if (it->id == ACT_RESUME) return MENU_CLOSE;
+        if (it->id == ACT_PLAY) { sound(1); return MENU_PLAY; }
+        if (it->id == ACT_ROM) { sound(1); return MENU_ROM; }
+        if (it->id == ACT_EXIT) return MENU_QUIT;
         if (it->id == ACT_CONTROLS) { sound(1); controls_open(); return MENU_NONE; }
         if (it->id == ACT_STATS || it->id == ACT_MAP) return MENU_NONE;     /* shown on the card */
         if (it->id == ACT_PRESET_ORIGINAL || it->id == ACT_PRESET_ENHANCED) {
@@ -400,7 +440,7 @@ MenuAction menu_event(const SDL_Event *e) {
     switch (e->type) {
     case SDL_KEYDOWN:
         switch (e->key.keysym.sym) {
-        case SDLK_ESCAPE: case SDLK_BACKSPACE: return MENU_CLOSE;
+        case SDLK_ESCAPE: case SDLK_BACKSPACE: return launcher ? MENU_NONE : MENU_CLOSE;
         case SDLK_UP: move(-1); break;
         case SDLK_DOWN: case SDLK_TAB: move(1); break;
         case SDLK_LEFT: dir = -1; break;
@@ -412,7 +452,8 @@ MenuAction menu_event(const SDL_Event *e) {
         break;
     case SDL_CONTROLLERBUTTONDOWN:
         switch (e->cbutton.button) {
-        case SDL_CONTROLLER_BUTTON_B: case SDL_CONTROLLER_BUTTON_BACK: case SDL_CONTROLLER_BUTTON_START: return MENU_CLOSE;
+        case SDL_CONTROLLER_BUTTON_START: return launcher ? MENU_PLAY : MENU_CLOSE;
+        case SDL_CONTROLLER_BUTTON_B: case SDL_CONTROLLER_BUTTON_BACK: return launcher ? MENU_NONE : MENU_CLOSE;
         case SDL_CONTROLLER_BUTTON_DPAD_UP: move(-1); break;
         case SDL_CONTROLLER_BUTTON_DPAD_DOWN: move(1); break;
         case SDL_CONTROLLER_BUTTON_DPAD_LEFT: dir = -1; break;
@@ -456,57 +497,59 @@ MenuAction menu_event(const SDL_Event *e) {
 }
 
 /* ---- Drawing ----------------------------------------------------------------------------- *
- * The launcher's look: one iridescent holofoil accent (ui_holo), line icons on the tabs with
- * an underline on a spring, a highlight on a spring, switches for what is only on or off,
- * values sliding in from the side they changed to, rows cascading in on a new tab, and the
- * menu dissolving in from the game and back out to it. */
+ * The game's look (theme.c): dialogue-box panels, a storybook heading, line icons on the
+ * tabs in cream with the open one in gold over a leafy rule on a spring, the sword cursor
+ * on a spring, apples for switches, values sliding in from the side they changed to, rows
+ * cascading in on a new tab, and the menu dissolving in from the game and back out to it. */
 static float ease_out(float x) { x = clampf(x, 0, 1); return 1 - (1 - x) * (1 - x) * (1 - x); }
 
-#define C_LABEL rgb_hex(0xDAD4C6)
-#define C_GOLD  rgb_hex(0xF3D58E)
-#define C_DIM   rgb_hex(0x8A8476)
+#define C_LABEL TH_LABEL
+#define C_GOLD  TH_GOLD
+#define C_DIM   TH_DIM
 #define OPEN_S  .35f                    /* the opening's length, seconds */
 #define CLOSE_S .2f                     /* and the closing's */
 
 static const int tab_icons[TABS] = { UI_ICON_GAME, UI_ICON_DISPLAY, UI_ICON_EFFECTS, UI_ICON_CHEATS, UI_ICON_MORE, UI_ICON_SPEED };
 
+/* A picture of w x h pixels drawn into (x, y, pw, ph) layout units, fitted by height
+ * (narrower ones get dark bars), with the gold picture frame. */
+static void draw_picture(const uint32_t *img, int w, int h, float x, float y, float pw, float ph, float alpha) {
+    int x0 = (int)ui_x(x), y0 = (int)ui_y(y), x1 = (int)ui_x(x + pw), y1 = (int)ui_y(y + ph);
+    for (int yy = y0; yy < y1; yy++)
+        for (int xx = x0; xx < x1; xx++) {
+            float u = (xx + .5f - ui_ox) / ui_s, v = (yy + .5f - ui_oy) / ui_s;
+            Rgb c;
+            if (img && w && h) {
+                float tw = ph * w / h * (h == 224 && w == 256 ? 1.25f : 1);   /* 256-wide screens are wider pixels */
+                float th = ph, ty0 = y;
+                if (tw > pw) { th = ph * pw / tw; tw = pw; ty0 = y + (ph - th) / 2; }   /* too wide: fit by width */
+                float tx0 = x + (pw - tw) / 2;
+                if (v < ty0 || v >= ty0 + th) { ui_blend_px(xx, yy, rgb_hex(0x141216), alpha); continue; }
+                float fx = (u - tx0) / tw * w;
+                if (fx < 0 || fx >= w) c = rgb_hex(0x141216);
+                else c = unpack(img[(int)clampf((v - ty0) / th * h, 0, h - 1) * w + (int)fx]);
+            } else {
+                c = mix(rgb_hex(0x1E1F25), rgb_hex(0x2A2B33), (v - y) / ph);
+                c = add(c, rgb(1, 1, 1), hashf((uint32_t)(yy * 977 + xx)) * .02f);
+            }
+            ui_blend_px(xx, yy, c, alpha);
+        }
+    theme_picture_frame(x, y, pw, ph, alpha);
+}
+
 static void draw_slot(float x, float y, float w, float t, float alpha) {
+    (void)t;
     if (slot_info_for != settings.state_slot) {
         savestate_info_free(&slot_info);
         savestate_info(settings.state_slot, &slot_info);
         slot_info_for = settings.state_slot;
     }
-    /* The picture: thumbnail with a thin holographic foil frame. */
-    float px = x, py = y, pw = w, ph = pw * 224 / 424.f;
-    int x0 = (int)ui_x(px), y0 = (int)ui_y(py), x1 = (int)ui_x(px + pw), y1 = (int)ui_y(py + ph);
-    for (int yy = y0 - 3; yy < y1 + 3; yy++)
-        for (int xx = x0 - 3; xx < x1 + 3; xx++) {
-            float u = (xx - ui_ox) / ui_s, v = (yy - ui_oy) / ui_s;
-            float d = ui_rrect_dist(u, v, px, py, pw, ph, 6) * ui_s;
-            if (d > 2.5f * ui_s / 1.5f + 1) continue;
-            Rgb c;
-            if (d < -1) {
-                if (slot_info.thumb && slot_info.w) {
-                    /* Fit the thumbnail by height; a narrower (4:3) one gets black bars. */
-                    float tw = ph * slot_info.w / slot_info.h, tx0 = px + (pw - tw) / 2;
-                    float fx = (u - tx0) / tw * slot_info.w, fy = (v - py) / ph * slot_info.h;
-                    if (fx < 0 || fx >= slot_info.w) c = rgb(0, 0, 0);
-                    else c = unpack(slot_info.thumb[(int)clampf(fy, 0, slot_info.h - 1) * slot_info.w + (int)fx]);
-                } else {
-                    float n = hashf((uint32_t)(yy * 977 + xx)) * .02f;
-                    c = mix(rgb_hex(0x111318), rgb_hex(0x1A1D24), (v - py) / ph);
-                    c = add(c, rgb(1, 1, 1), n);
-                }
-                ui_blend_px(xx, yy, c, alpha);
-            } else {
-                float a = clampf(1 - fabsf(d - .5f) / (1.6f * ui_s / 1.5f + .6f), 0, 1);
-                ui_blend_px(xx, yy, ui_holo((u - px) / pw * .8f + (v - py) / ph * .5f, t), a * .9f * alpha);
-            }
-        }
+    float ph = w * 224 / 424.f;
+    draw_picture(slot_info.thumb, slot_info.w, slot_info.h, x, y, w, ph, alpha);
     if (!slot_info.exists) {
         const char *empty = "Empty slot";
         float ew = ui_text_width(empty, "Segoe UI", 18, 400, 2);
-        ui_draw_text(empty, "Segoe UI", 18, 400, 2, px + (pw - ew) / 2, py + ph / 2 - 12, C_DIM, C_DIM, alpha);
+        ui_draw_text(empty, "Segoe UI", 18, 400, 2, x + (w - ew) / 2, y + ph / 2 - 12, C_DIM, C_DIM, alpha);
     }
     char when[96];
     if (slot_info.exists) {
@@ -515,8 +558,8 @@ static void draw_slot(float x, float y, float w, float t, float alpha) {
     } else {
         snprintf(when, sizeof when, "Nothing saved here yet");
     }
-    ui_draw_text(when, "Segoe UI", 15, 400, 0, px, py + ph + 18, C_LABEL, C_LABEL, alpha);
-    ui_keycap(px, py + ph + 44, "\xE2\x86\x90\xE2\x86\x92", "change slot", alpha);
+    ui_draw_text(when, "Segoe UI", 15, 400, 0, x, y + ph + 18, C_LABEL, C_LABEL, alpha);
+    ui_keycap(x, y + ph + 44, "\xE2\x86\x90\xE2\x86\x92", "change slot", alpha);
 }
 
 /* Wraps `text` to `width` and draws it from (x, y); returns the y below it. */
@@ -544,57 +587,75 @@ static float draw_wrapped(const char *text, float x, float y, float width, float
     return y;
 }
 
-/* A tab's icon large, glowing, standing in for a picture. */
+/* A tab's icon large, in a gold ring with leaves, standing in for a picture. */
 static void big_icon(float cx, float cy, float size, float t, float alpha) {
-    ui_glow(cx, cy, 30 * size, ui_holo(.2f, t), .2f * alpha);
-    ui_capsule(cx, cy, cx, cy, 15.5f * size, 1.2f, ui_holo(.35f, t), .45f * alpha);
-    ui_icon(tab_icons[tab], cx, cy, size, mix(rgb(1, 1, 1), ui_holo(.1f, t), .35f), alpha);
+    (void)t;
+    ui_glow(cx, cy, 30 * size, rgb_hex(0xF8C860), .16f * alpha);
+    ui_capsule(cx, cy, cx, cy, 15.5f * size, 1.4f, TH_GOLD, .7f * alpha);
+    theme_leaf(cx - 15.5f * size - 4, cy + 6 * size, 9 * size, 2.4f, TH_LEAF, alpha);
+    theme_leaf(cx + 15.5f * size + 4, cy + 6 * size, 9 * size, .74f, TH_LEAF, alpha);
+    ui_icon(tab_icons[tab], cx, cy, size, TH_CREAM, alpha);
+}
+
+/* The heading of the card: the row's name in small gold capitals over a leafy rule. */
+static float card_head(const char *label, float x, float y, float in, float alpha) {
+    char head[64];
+    size_t k = 0;
+    for (const char *p = label; *p && k < sizeof head - 1; p++) head[k++] = (char)((*p >= 'a' && *p <= 'z') ? *p - 32 : *p);
+    head[k] = 0;
+    ui_draw_text(head, "Palatino Linotype", 15, 700, 4, x, y, TH_GOLD_HI, TH_GOLD, alpha);
+    theme_rule(x, y + 28, 70 * in + 20, alpha);
+    return y + 46;
 }
 
 /* The card on the right, for the selected row; its content rises in when that changes. */
 static void draw_card(float t, float alpha) {
-    if (foil_begin(&card_surf, CARD_X, CARD_Y, CARD_W, CARD_H, 16, rgb(.86f, .88f, 1))) {
-        foil_frame(&card_surf, 8, 10);
-        foil_recess(&card_surf, CARD_X + 18, CARD_Y + 18, CARD_W - 36, CARD_H - 36, 8, .3f);
-        foil_finish(&card_surf);
-    }
-    float lx, ly;
-    foil_light(t, mouse_x, mouse_y, mouse_t, &lx, &ly);
-    foil_draw(&card_surf, lx, ly, t);
+    theme_frame(CARD_X, CARD_Y, CARD_W, CARD_H, false, 1);
     float in = ease_out((float)(now - selected_at) / .28f);
     alpha *= in;
     const Item *it = item_at(selected);
-    float x = CARD_X + 28, w = CARD_W - 56, y = CARD_Y + 24 + (1 - in) * 8;
-    Rgb acc = ui_holo(.25f, t);
+    float x = CARD_X + 34, w = CARD_W - 68, y = CARD_Y + 30 + (1 - in) * 8;
     if (!it) {                          /* on the tab bar: the tab itself */
         big_icon(CARD_X + CARD_W / 2.f, CARD_Y + 190 + (1 - in) * 8, 3.4f, t, alpha);
-        float lw = ui_text_width(tab_names[tab], "Palatino Linotype", 26, 700, 8);
-        ui_draw_text(tab_names[tab], "Palatino Linotype", 26, 700, 8, CARD_X + (CARD_W - lw) / 2, CARD_Y + 300, rgb_hex(0xFFF1D0), rgb_hex(0xD9B567), alpha);
+        const char *name = TAB_NAME(tab);
+        float lw = ui_text_width(name, "Palatino Linotype", 28, 700, 8);
+        theme_heading(name, CARD_X + (CARD_W - lw) / 2, CARD_Y + 296, 28, 8, alpha);
         float kx = CARD_X + CARD_W / 2.f - 96;
-        kx = ui_keycap(kx, CARD_Y + 350, "\xE2\x86\x90\xE2\x86\x92", "or", alpha);
-        ui_keycap(kx - 8, CARD_Y + 350, "Q  E", "change tabs", alpha);
+        kx = ui_keycap(kx, CARD_Y + 356, "\xE2\x86\x90\xE2\x86\x92", "or", alpha);
+        ui_keycap(kx - 8, CARD_Y + 356, "Q  E", "change tabs", alpha);
         return;
     }
-    char head[64];
-    if (it->kind == ITEM_SLOT) snprintf(head, sizeof head, "SLOT %d", settings.state_slot);
-    else {
-        size_t k = 0;
-        for (const char *p = it->label; *p && k < sizeof head - 1; p++) head[k++] = (char)((*p >= 'a' && *p <= 'z') ? *p - 32 : *p);
-        head[k] = 0;
+    if (it->kind == ITEM_ACTION && it->id == ACT_PLAY) {
+        /* The launcher's cover: the title screen, the version and how to start. */
+        float ph = w * 224 / 300.f;
+        draw_picture(frame, frame_w, frame_h, x, y - 4, w, ph, alpha);
+        float ty = y + ph + 20;
+        if (game) {
+            char line[160];
+            snprintf(line, sizeof line, "%s  \xC2\xB7  %s", game->name, game->language);
+            ui_draw_text(line, "Segoe UI Semibold", 16, 600, 0, x, ty, TH_GOLD_HI, TH_GOLD_HI, alpha);
+            ty += 30;
+        }
+        draw_wrapped("Press Enter, A or Start to begin your adventure. Esc opens this menu again in the game.", x, ty, w, 15.5f, C_LABEL, alpha);
+        return;
     }
-    ui_draw_text(head, "Segoe UI Semibold", 12.5f, 600, 4, x, y, acc, acc, alpha);
-    ui_holo_bar(x, y + 24, 40 * in, 2, t, .85f * alpha);
-    y += 44;
-    if (it->kind == ITEM_SLOT) { draw_slot(x, y, w, t, alpha); return; }
+    y = card_head(it->kind == ITEM_SLOT ? "Save slot" : it->label, x, y, in, alpha);
+    if (it->kind == ITEM_SLOT) {
+        char slot[32];
+        snprintf(slot, sizeof slot, "Slot %d", settings.state_slot);
+        ui_draw_text(slot, "Segoe UI Semibold", 15, 600, 0, x + w - ui_text_width(slot, "Segoe UI Semibold", 15, 600, 0), y - 46, TH_GOLD_HI, TH_GOLD_HI, alpha);
+        draw_slot(x, y, w, t, alpha);
+        return;
+    }
     if (it->kind == ITEM_ACTION && it->id == ACT_MAP) {
-        float mh = CARD_H - 44 - 24 - 110;
-        ui_fill_rect(x, y, w, mh, rgb_hex(0x07080B), .55f * alpha);
+        float mh = CARD_H - 46 - 30 - 112;
+        ui_fill_rect(x, y, w, mh, rgb_hex(0x15161B), .8f * alpha);
         if (!automap_draw(x + 6, y + 6, w - 12, mh - 12, t, alpha)) {
             const char *none = "Nothing of this map seen yet.";
             float nw = ui_text_width(none, "Segoe UI", 15, 400, 0);
             ui_draw_text(none, "Segoe UI", 15, 400, 0, x + (w - nw) / 2, y + mh / 2 - 10, C_DIM, C_DIM, alpha);
         }
-        ui_panel(x - 1, y - 1, w + 2, mh + 2, 4, rgb(0, 0, 0), rgb(0, 0, 0), 0, rgb_hex(0xD9B567), .5f * alpha);
+        theme_picture_frame(x, y, w, mh, alpha);
         draw_wrapped(about(it), x, y + mh + 18, w, 15.5f, C_LABEL, alpha);
         return;
     }
@@ -605,23 +666,23 @@ static void draw_card(float t, float alpha) {
             char *tab_at = strchr(lines[i], '\t');
             if (!tab_at) continue;
             *tab_at = 0;
-            float ly = y + i * 38 + (i >= 2 ? 22 : 0);   /* this session, then all sessions */
-            if (i == 2) ui_holo_bar(x, ly - 18, w, 1, t, .35f * alpha);
+            float ly = y + i * 36 + (i >= 2 ? 22 : 0);   /* this session, then all sessions */
+            if (i == 2) theme_rule(x, ly - 14, w, .6f * alpha);
             ui_draw_text(lines[i], "Segoe UI", 16, 400, 0, x, ly, C_LABEL, C_LABEL, alpha);
             float vw = ui_text_width(tab_at + 1, "Segoe UI Semibold", 17, 600, 0);
-            ui_draw_text(tab_at + 1, "Segoe UI Semibold", 17, 600, 0, x + w - vw, ly - 1, rgb_hex(0xFFE4A0), rgb_hex(0xFFE4A0), alpha);
+            ui_draw_text(tab_at + 1, "Segoe UI Semibold", 17, 600, 0, x + w - vw, ly - 1, TH_GOLD_HI, TH_GOLD_HI, alpha);
         }
         return;
     }
     if (it->kind == ITEM_OPTION && preview_supported(it->id) && preview_ready()) {
         float ph = w * 9 / 16.f;
         preview_draw(it->id, x, y, w, ph, t);
-        ui_panel(x - 1, y - 1, w + 2, ph + 2, 4, rgb(0, 0, 0), rgb(0, 0, 0), 0, rgb_hex(0xD9B567), .5f * alpha);
-        y += ph + 18;
+        theme_picture_frame(x, y, w, ph, alpha);
+        y += ph + 20;
     } else {
         /* No picture: the tab's icon stands in for it. */
-        big_icon(CARD_X + CARD_W / 2.f, y + 110, 2.8f, t, alpha);
-        y += 220;
+        big_icon(CARD_X + CARD_W / 2.f, y + 100, 2.8f, t, alpha);
+        y += 210;
     }
     const char *text = about(it);
     if (text) y = draw_wrapped(text, x, y, w, 15.5f, C_LABEL, alpha);
@@ -630,20 +691,8 @@ static void draw_card(float t, float alpha) {
         settings_option_text(it->id, value, sizeof value);
         char line[96];
         snprintf(line, sizeof line, "Now: %s", value);
-        ui_draw_text(line, "Segoe UI Semibold", 15, 600, 0, x, y + 8, rgb_hex(0xFFE4A0), rgb_hex(0xFFE4A0), alpha);
+        ui_draw_text(line, "Segoe UI Semibold", 15, 600, 0, x, y + 8, TH_GOLD_HI, TH_GOLD_HI, alpha);
     }
-}
-
-/* The steel panel: the title stamped in gold, a holographic frame and rule, the rows'
- * recess. */
-static void build_panel(void) {
-    if (!foil_begin(&panel_surf, TAB_X0, TAB_Y0, TAB_W0, TAB_H0, 18, rgb(.84f, .86f, 1))) return;
-    foil_frame(&panel_surf, 12, 10);
-    float tw = ui_text_width("PAUSED", "Palatino Linotype", 40, 700, 8);
-    foil_text(&panel_surf, "PAUSED", "Palatino Linotype", 40, 700, 8, LIST_X - 2 + tw / 2, TAB_Y0 + 56, -.9f, FOIL_GOLD);
-    foil_rule(&panel_surf, TAB_X0 + 36, TAB_X0 + TAB_W0 - 36, TABS_Y + TABS_H + 9, 1);
-    foil_recess(&panel_surf, LIST_X - 22, LIST_Y - 8, LIST_R - LIST_X + 36, TAB_Y0 + TAB_H0 - 64 - (LIST_Y - 8), 8, .35f);
-    foil_finish(&panel_surf);
 }
 
 /* An option shown as a switch: only on or off, and reading so now. */
@@ -659,52 +708,110 @@ static void animate(float dt) {
     ui_spring(&ind_x, &ind_v, TABS_X + tab * TABW + TABW / 2.f, dt, 220);
     float k = 1 - expf(-dt * 12);
     for (int i = 0; i < TABS; i++) tab_on[i] += ((i == tab ? 1.f : 0.f) - tab_on[i]) * k;
-    for (int i = 0; i < tab_count[tab] && i < MAX_ROWS; i++) {
+    for (int i = 0; i < COUNT(tab) && i < MAX_ROWS; i++) {
         char value[64];
-        float target = row_switch(&tab_items[tab][i], value, sizeof value) && !strcmp(value, "On") ? 1.f : 0.f;
+        float target = row_switch(&ITEMS(tab)[i], value, sizeof value) && !strcmp(value, "On") ? 1.f : 0.f;
         knob[i] = snap ? target : knob[i] + (target - knob[i]) * (1 - expf(-dt * 14));
     }
     snap = false;
 }
 
+/* A small gold chevron pointing left (dir -1) or right (+1). */
+static void chevron(float x, float cy, int dir, Rgb c, float alpha) {
+    ui_capsule(x - 3 * dir, cy - 5, x + dir, cy, .95f, 0, c, alpha);
+    ui_capsule(x + dir, cy, x - 3 * dir, cy + 5, .95f, 0, c, alpha);
+}
+
 static void draw_row(int i, float dx, float alpha, float t) {
-    const Item *it = &tab_items[tab][i];
+    (void)t;
+    const Item *it = &ITEMS(tab)[i];
     float y = row_y(i), cy = y + ROW_H / 2.f;
     bool focus = selected == i;
     bool danger = it->kind == ITEM_ACTION && (it->id == ACT_RESET || it->id == ACT_QUIT);
-    Rgb lc = focus ? (danger && confirm_pending ? rgb_hex(0xF2A08F) : rgb_hex(0xFFFFFF)) : C_LABEL;
-    ui_draw_text(it->label, "Segoe UI", 17, 400, 0, LIST_X + dx, y + 9, lc, lc, alpha);
+    bool play = it->kind == ITEM_ACTION && it->id == ACT_PLAY;
+    Rgb lc = focus ? (danger && confirm_pending ? rgb_hex(0xFF9A80) : TH_CREAM) : C_LABEL;
+    if (play) ui_draw_text(it->label, "Palatino Linotype", 22, 700, 3, LIST_X + dx, y + 5, TH_GOLD_HI, TH_GOLD, alpha);
+    else ui_draw_text(it->label, "Segoe UI", 17, 400, 0, LIST_X + dx, y + 9, lc, lc, alpha);
     char value[64] = "";
     if (row_switch(it, value, sizeof value)) {
-        ui_switch(LIST_R + dx, cy, knob[i], t, alpha);
+        theme_apple(LIST_R - 10 + dx, cy + 1, 10, knob[i], alpha);
         return;
     }
     if (it->kind == ITEM_OPTION) settings_option_text(it->id, value, sizeof value);
     else if (it->kind == ITEM_SLOT) snprintf(value, sizeof value, "Slot %d", settings.state_slot);
     if (!value[0]) {
-        if (it->kind == ITEM_ACTION && focus) {          /* an action: a chevron to go */
-            Rgb ac = danger ? rgb_hex(0xF2A08F) : ui_holo(.2f, t);
-            float ax = LIST_R - 4 + dx;
-            ui_capsule(ax - 4, cy - 5, ax, cy, .85f, 0, ac, alpha);
-            ui_capsule(ax, cy, ax - 4, cy + 5, .85f, 0, ac, alpha);
-        }
+        if (it->kind == ITEM_ACTION && focus) chevron(LIST_R - 4 + dx, cy, 1, danger ? rgb_hex(0xFF9A80) : TH_GOLD, alpha);
         return;
     }
     /* A new value slides in from the side it changed towards. */
     float s = changed_row == i ? ease_out((float)(now - changed_at) / .26f) : 1;
     float slide = (1 - s) * 16 * changed_dir, va = alpha * (.25f + .75f * s);
-    Rgb vc = focus ? rgb_hex(0xFFE7AE) : C_GOLD;
+    Rgb vc = focus ? TH_GOLD_HI : C_GOLD;
     float vw = ui_text_width(value, "Segoe UI Semibold", 17, 600, 0);
     float vx = LIST_R - 20 - vw;
     if (it->kind == ITEM_OPTION && it->id == OPT_VOLUME) {
         vx = LIST_R - 20 - ui_text_width("100%", "Segoe UI Semibold", 17, 600, 0);
         ui_slider(VOLUME_X + dx, cy, VOLUME_W, settings.volume / 100.f, focus);
     }
-    Rgb ac = focus ? ui_holo(.2f, t) : rgb_hex(0x5E5A52);
+    Rgb ac = focus ? TH_GOLD : rgb_hex(0x6A6252);
     float nudge = (1 - s) * 3, lx = vx - 12 - nudge * (changed_dir < 0) + dx, rx = LIST_R - 4 + nudge * (changed_dir > 0) + dx;
-    ui_capsule(lx + 3, cy - 5, lx - 1, cy, .85f, 0, ac, alpha); ui_capsule(lx - 1, cy, lx + 3, cy + 5, .85f, 0, ac, alpha);
-    ui_capsule(rx - 3, cy - 5, rx + 1, cy, .85f, 0, ac, alpha); ui_capsule(rx + 1, cy, rx - 3, cy + 5, .85f, 0, ac, alpha);
+    chevron(lx + 1, cy, -1, ac, alpha);
+    chevron(rx - 1, cy, 1, ac, alpha);
     ui_draw_text(value, "Segoe UI Semibold", 17, 600, 0, vx + dx + slide, y + 9, vc, vc, va);
+}
+
+/* The orchard in the wind, behind the panels: leaves drifting down and turning, and in the
+ * launcher apples falling, bouncing where they land and rolling away, and a garland of
+ * leaves swaying along the top. Everything follows from the time alone (each piece loops
+ * on its own period), so it needs no state and looks the same at any frame rate. */
+static void draw_falling(float t, bool full) {
+    static const uint32_t leaf_colors[5] = { 0x7CC64E, 0x5FA83C, 0x9DCB4A, 0xE0A03A, 0xC8642C };
+    int leaves = full ? 26 : 10;
+    for (int k = 0; k < leaves; k++) {
+        float period = 9 + hashf((uint32_t)k * 97u) * 7;            /* seconds to cross the screen */
+        float u = fmodf(t / period + hashf((uint32_t)k * 13u), 1);
+        float x0 = hashf((uint32_t)k * 31u) * 1400 - 120;
+        float y = -40 + u * 800;
+        float sway = sinf(t * (.8f + hashf((uint32_t)k * 7u) * .6f) + k) * (26 + 18 * hashf((uint32_t)k * 3u));
+        float x = x0 + u * 140 + sway;                                /* the wind carries them right */
+        float spin = t * (1.2f + hashf((uint32_t)k * 19u) * 1.8f) * (k & 1 ? 1 : -1) + k;
+        float size = 14 + hashf((uint32_t)k * 41u) * 12;
+        float fade = smooth(0, .06f, u) * (1 - smooth(.92f, 1, u));
+        Rgb c = rgb_hex(leaf_colors[k % 5]);
+        /* Turning in the air: narrower when edge-on, a little darker on the back. */
+        float turn = fabsf(cosf(spin * .7f));
+        theme_leaf(x, y, size * (.55f + .45f * turn), spin, scale(c, .75f + .25f * turn), (full ? .9f : .45f) * fade);
+    }
+    if (!full) return;
+    for (int k = 0; k < 6; k++) {
+        float period = 6 + hashf((uint32_t)k * 211u) * 5;
+        float u = fmodf(t / period + hashf((uint32_t)k * 57u), 1), life = u * period;   /* seconds into its fall */
+        float x = 80 + hashf((uint32_t)k * 77u + (uint32_t)floorf(t / period + hashf((uint32_t)k * 57u)) * 13u) * 1120;
+        float ground = 700, fall_t = sqrtf((ground + 30) / 260.f);   /* falling with gravity, 260 units/s^2 */
+        float y, roll = 0, a = 1;
+        if (life < fall_t) y = -30 + 130 * life * life;
+        else {
+            float b = life - fall_t;                                  /* bounces, each smaller, then rolls */
+            float hop = 0, s = b;
+            for (float h = 90; h > 4 && s >= 0; h *= .35f) {
+                float d = 2 * sqrtf(2 * h / 260.f);
+                if (s < d) { float q = s - d / 2; hop = h - 130 * q * q; break; }
+                s -= d;
+            }
+            y = ground - fmaxf(hop, 0);
+            roll = b * 70 * (k & 1 ? 1 : -1);
+            a = 1 - smooth(period * .55f, period * .8f, life);
+        }
+        float r = 11 + hashf((uint32_t)k * 5u) * 4;
+        theme_apple(x + roll, y, r, 1, .95f * a);
+    }
+    /* The garland: leaves on a vine along the top, swaying. */
+    for (int k = 0; k < 34; k++) {
+        float x = k * 40 - 20, base = 6 + 6 * sinf(k * .9f);
+        float sway = sinf(t * 1.3f + k * .55f) * .25f;
+        theme_leaf(x, base + 10, 22, 1.57f + .6f * ((k & 1) ? 1 : -1) + sway, rgb_hex(k % 3 ? 0x5FA83C : 0x7CC64E), .85f);
+        if (k % 7 == 3) theme_apple(x + 4, base + 22 + sinf(t * 1.3f + k * .55f) * 3, 8, 1, .9f);
+    }
 }
 
 void menu_render(double time_s) {
@@ -718,55 +825,62 @@ void menu_render(double time_s) {
     if (closing_at >= 0) in *= 1 - ease_out((float)(now - closing_at) / CLOSE_S);
 
     memcpy(ui_px, backdrop, (size_t)ui_w * ui_h * 4);
-    foil_atmosphere(t, .5f);
+    /* Motes of light drifting up through the warm air. */
+    for (int k = 0; k < 26; k++) {
+        float sx = hashf((uint32_t)k * 31u) * 1280, sp = 8 + hashf((uint32_t)k * 71u) * 14;
+        float sy = 720 - fmodf(t * sp + hashf((uint32_t)k * 13u) * 720, 760) + 20;
+        float tw = .5f + .5f * sinf(t * (1 + hashf((uint32_t)k * 5u)) + k);
+        ui_glow(sx + sinf(t * .4f + k) * 12, sy, 2.4f, rgb_hex(0xFFE6A0), .5f * tw);
+    }
 
-    build_panel();
-    float lx, ly;
-    foil_light(t, mouse_x, mouse_y, mouse_t, &lx, &ly);
-    foil_draw(&panel_surf, lx, ly, t);
+    draw_falling(t, launcher);
 
-    /* The tabs: icons over their names, the open one lit, the underline on a spring. */
+    /* The panel: the dialogue box, the heading, the tabs. */
+    theme_frame(TAB_X0, TAB_Y0, TAB_W0, TAB_H0, true, 1);
+    if (launcher && game && game->title) theme_heading(game->title, LIST_X - 2, TAB_Y0 + 30, 30, 4, 1);
+    else theme_heading("PAUSED", LIST_X - 2, TAB_Y0 + 26, 40, 8, 1);
     for (int k = 0; k < TABS; k++) {
         float cx = TABS_X + k * TABW + TABW / 2.f, on = tab_on[k];
-        Rgb ic = mix(rgb_hex(0x6E6A62), mix(rgb(1, 1, 1), ui_holo(k * .17f, t), .4f), on);
-        if (on > .02f) ui_glow(cx, TABS_Y + 22, 30, ui_holo(k * .17f, t), .10f * on);
-        ui_icon(tab_icons[k], cx, TABS_Y + 22 - on * 2, 1, ic, .6f + .4f * on);
-        Rgb tc = mix(rgb_hex(0x7C776C), rgb_hex(0xF4EFE4), on);
-        float tw = ui_text_width(tab_names[k], "Segoe UI Semibold", 12, 600, 2.5f);
-        ui_draw_text(tab_names[k], "Segoe UI Semibold", 12, 600, 2.5f, cx - tw / 2, TABS_Y + 42, tc, tc, 1);
+        Rgb ic = mix(rgb_hex(0x8A8470), TH_GOLD_HI, on);
+        if (on > .02f) ui_glow(cx, TABS_Y + 22, 30, rgb_hex(0xF8C860), .10f * on);
+        ui_icon(tab_icons[k], cx, TABS_Y + 22 - on * 2, 1, ic, .65f + .35f * on);
+        Rgb tc = mix(rgb_hex(0x8C8672), TH_CREAM, on);
+        const char *name = TAB_NAME(k);
+        float tw = ui_text_width(name, "Segoe UI Semibold", 12, 600, 2.5f);
+        ui_draw_text(name, "Segoe UI Semibold", 12, 600, 2.5f, cx - tw / 2, TABS_Y + 42, tc, tc, 1);
     }
-    float uw = TABW - 36;
-    ui_glow(ind_x, TABS_Y + TABS_H - 6, 40, ui_holo(.3f, t), selected < 0 ? .3f : .16f);
-    ui_holo_bar(ind_x - uw / 2, TABS_Y + TABS_H - 7, uw, 2.5f, t, .95f);
+    float uw = TABW - 20;
+    if (selected < 0) ui_glow(ind_x, TABS_Y + TABS_H - 6, 40, rgb_hex(0xF8C860), .25f);
+    theme_rule(ind_x - uw / 2, TABS_Y + TABS_H - 6, uw, 1);
+    ui_fill_rect(TAB_X0 + 30, TABS_Y + TABS_H + 8, TAB_W0 - 60, 1, rgb_hex(0x6A5E4E), .7f);
 
-    /* The highlight on a spring, with a living accent edge; the rows cascade in. */
+    /* The highlight on a spring, with the sword pointing at it; the rows cascade in. */
     if (selected >= 0) {
         float a = ease_out((float)(now - tab_at - .1f) / .3f);
-        ui_panel(LIST_X - 14, hl_y + 3, LIST_R - LIST_X + 22, ROW_H - 6, 8, rgb_hex(0x262A36), rgb_hex(0x1C1F28), .55f * a,
-                 ui_holo(.1f, t), .22f * a);
-        ui_capsule(LIST_X - 8, hl_y + 11, LIST_X - 8, hl_y + ROW_H - 11, 1.6f, 0, ui_holo(t * .1f, t), a);
-        ui_glow(LIST_X - 8, hl_y + ROW_H / 2.f, 22, ui_holo(t * .1f, t), .28f * a);
+        ui_panel(LIST_X - 14, hl_y + 3, LIST_R - LIST_X + 22, ROW_H - 6, 6, rgb_hex(0x46603A), rgb_hex(0x34482C), .55f * a,
+                 TH_LEAF, .35f * a);
+        theme_sword(LIST_X - 18 + sinf(t * 5) * 2, hl_y + ROW_H / 2.f, a);
     }
     int dir = tab > tab_from ? 1 : -1;
-    for (int i = 0; i < tab_count[tab]; i++) {
+    for (int i = 0; i < COUNT(tab); i++) {
         float e = ease_out((float)(now - fmax(tab_at, opened_at) - i * .03f) / .28f);
         if (e > 0) draw_row(i, (1 - e) * 24 * dir, e, t);
     }
-    float kx = LIST_X, ky = TAB_Y0 + TAB_H0 - 46;
+    float kx = LIST_X, ky = TAB_Y0 + TAB_H0 - 50;
     kx = ui_keycap(kx, ky, "\xE2\x86\x91\xE2\x86\x93", "select", 1);
     kx = ui_keycap(kx, ky, "\xE2\x86\x90\xE2\x86\x92", "change", 1);
     kx = ui_keycap(kx, ky, "Q  E", "tabs", 1);
     kx = ui_keycap(kx, ky, "Enter", "choose", 1);
-    ui_keycap(kx, ky, "Esc", "resume", 1);
+    if (!launcher) ui_keycap(kx, ky, "Esc", "resume", 1);
 
     draw_card(t, 1);
 
     if (now < toast_until) {
         float a = clampf((float)(toast_until - now) / .4f, 0, 1) * ease_out((float)(2.2 - (toast_until - now)) / .2f);
-        float w = ui_text_width(toast, "Segoe UI Semibold", 16, 600, 1) + 48;
-        float x = CARD_X + (CARD_W - w) / 2, y = CARD_Y + CARD_H + 24 + (1 - a) * 8;
-        ui_panel(x, y, w, 40, 20, rgb_hex(0x22252E), rgb_hex(0x15171D), .94f * a, ui_holo(.2f, t), .55f * a);
-        ui_draw_text(toast, "Segoe UI Semibold", 16, 600, 1, x + 24, y + 9, rgb_hex(0xF3DDA4), rgb_hex(0xF3DDA4), a);
+        float w = ui_text_width(toast, "Segoe UI Semibold", 16, 600, 1) + 64;
+        float x = CARD_X + (CARD_W - w) / 2, y = CARD_Y + CARD_H + 22 + (1 - a) * 8;
+        theme_frame(x, y, w, 52, false, a);
+        ui_draw_text(toast, "Segoe UI Semibold", 16, 600, 1, x + 32, y + 15, TH_CREAM, TH_CREAM, a);
     }
     controls_render(time_s);
 
