@@ -9,7 +9,14 @@
  *            $F1 the hero's name, $E0 hi lo sets a story flag ($030786) and $E1 hi lo clears
  *            one; both skip the rest of their line
  * The tables give no counts: each list ends where the first thing it points to begins. Lines
- * that do not read as text (bytes outside the above) are left out. */
+ * that do not read as text (bytes outside the above) are left out.
+ *
+ * Objects run scripts: a word per command, the handler from the table at $0308DA (a long a
+ * command), the arguments after it. The command handled at $030CC8 gives the object a line
+ * to say and a flag (bank, group, message, flag: +$3A, +$3C, +$3E, +$38); when the player has
+ * read it ($030A84 shows it, $032C44 sets the flag left in $B63E), the flag is set. So these
+ * flags are named by that line too: the ROM is searched for the command with a message that
+ * reads as text and a flag below 512. */
 #include "story.h"
 
 #include <stdio.h>
@@ -22,6 +29,8 @@
 #define FLAGS     512
 #define TEXT_BASE 0x1C0000u
 #define LIVE      0xC500                /* the live flags in RAM */
+#define SCRIPT_OPS   0x308DA            /* the script commands' handlers */
+#define SAY_AND_FLAG 0x30CC8            /* the handler of "this line, then this flag" */
 
 static char *who[FLAGS], *line[FLAGS];  /* NULL: not named */
 static int bank_of[FLAGS];
@@ -56,9 +65,10 @@ static const char *punct(uint8_t b) {
 }
 
 /* Reads one message; names the flags it sets that have no name yet. */
-static void read_message(uint32_t a, int bank) {
+static void read_message(uint32_t a, int bank, int also) {
     char text[900];
     int n = 0, unknown = 0, flags[8], nflags = 0;
+    if (also >= 0) flags[nflags++] = also;
     for (int k = 0; k < 800 && a < ROM_SIZE; k++) {
         uint8_t c = bus.rom[a++];
         if (c == 0xFF) break;
@@ -100,6 +110,7 @@ static void read_message(uint32_t a, int bank) {
     size_t len = strlen(said);
     if (len && said[len - 1] == '"') said[--len] = 0;
     if (len < 4) return;
+    if (also >= 0 && strstr(said, "Yes") && strstr(said, "No") && len < 16) return;   /* only a choice */
     for (int i = 0; i < nflags; i++) {
         int f = flags[i];
         if (f < 0 || f >= FLAGS || line[f]) continue;
@@ -123,8 +134,27 @@ static void name_flags(void) {
         for (int g = 0; g < groups; g++) {
             uint32_t group = bank + rom16(bank + (uint32_t)g * 2);
             int messages = list_len(group, 2, 256);
-            for (int m = 0; m < messages; m++) read_message(group + rom16(group + (uint32_t)m * 2), b);
+            for (int m = 0; m < messages; m++) read_message(group + rom16(group + (uint32_t)m * 2), b, -1);
         }
+    }
+    /* Scripts' "say this, then set that flag" (see the top). */
+    int op = -1;
+    for (int i = 0; i < 128 && op < 0; i++) if (rom32(SCRIPT_OPS + (uint32_t)i * 4) == SAY_AND_FLAG) op = i;
+    if (op < 0) return;
+    /* A flag that many scripts use this way is a scratch flag (an answer), not an event. */
+    static uint8_t uses[FLAGS];
+    memset(uses, 0, sizeof uses);
+    for (uint32_t a = 0; a + 10 <= ROM_SIZE; a += 2)
+        if (rom16(a) == op && rom16(a + 8) < FLAGS && uses[rom16(a + 8)] < 255) uses[rom16(a + 8)]++;
+    for (uint32_t a = 0; a + 10 <= ROM_SIZE; a += 2) {
+        if (rom16(a) != op) continue;
+        int b = rom16(a + 2), g = rom16(a + 4), m = rom16(a + 6), f = rom16(a + 8);
+        if (f >= FLAGS || line[f] || b >= banks || uses[f] > 2) continue;
+        uint32_t bank = TEXT_BASE + rom32(TEXT_BASE + (uint32_t)b * 4);
+        if (g >= list_len(bank, 2, 64)) continue;
+        uint32_t group = bank + rom16(bank + (uint32_t)g * 2);
+        if (m >= list_len(group, 2, 256)) continue;
+        read_message(group + rom16(group + (uint32_t)m * 2), b, f);
     }
 }
 

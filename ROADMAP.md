@@ -30,7 +30,7 @@ Status markers:
 | Enemy types | `$1B2D8`, 32 bytes a type (type - 1): +0 set-up routine (writes the type, then the starting health), +$0C hitbox offset and +$10 size; spawned at `$19D3E`, health doubled when `$FFC01C` is set. Most foes start with 1-4 points; the 64-pixel ones ($0E, $1E, $36, $47, $81) and the late guardians ($60-$6A) 6-32 | boss bar |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
-| Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. 83 flags are named this way (Paused > Journal). The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave, journal |
+| Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. Objects run scripts (a word per command, handlers at `$0308DA`, position at +$30; `$FFFF` ends a tick): `$030CC8` gives an object a line and a flag (+$3A/+$3C/+$3E message, +$38 flag), set by `$032C44` once the line is read; `$030AC6` / `$030ADA` set / clear a flag; `$030B22` sets +$38 alone (items: `$02F2B4` sets it when picked up). 102 flags are named from dialogue and these lines (Paused > Journal). The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave, journal |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
 (bigger hits). The Japanese and Korean addresses are found automatically
@@ -119,6 +119,6 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Story flags: named from dialogue (Paused > Journal); the rest (set by objects, `$02F2B4`, and code) are still unnamed, which New Game+ would need.
+1. Story flags: 102 named (Paused > Journal); the rest are items picked up (`$030B22`), script commands with no line (`$030AC6`), first visits (the table at `$38B8`) and code. Naming them needs the areas named too.
 2. World effects that need the camera: vegetation, shadows.
 3. Companion pages, then the larger modes (New Game+, Boss Rush).

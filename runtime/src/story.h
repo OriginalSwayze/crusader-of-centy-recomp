@@ -1,8 +1,8 @@
 /* The journal (story.c): the game's story events, named from its own dialogue.
  *
  * The game keeps 512 story flags (live at $FFC500). Most are set by its dialogue: the text
- * code E0 hi lo sets flag hi:lo when the line is shown. So each such flag is named by the
- * line that sets it (who says it, and what), read from the cartridge when it loads; nothing
+ * code E0 hi lo sets flag hi:lo when the line is shown, and an object script can give a line
+ * a flag to set once it is read. So each such flag is named by the line that sets it (who says it, and what), read from the cartridge when it loads; nothing
  * of the game's text is kept in this project. The order the player met them in is kept in
  * journal.bin next to the game. Named for the USA version only (the others' text is in
  * another encoding); there the journal is empty. */
