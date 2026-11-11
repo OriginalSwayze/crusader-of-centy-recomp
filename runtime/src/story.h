@@ -26,4 +26,16 @@ typedef struct { const char *who, *line; } StoryEvent;
  * cartridge's order. `done` of `total` named events. Returns how many went into `out`. */
 int story_events(StoryEvent *out, int max, int *done, int *total);
 
+/* The animals that can join Corona (16), in the game's order. */
+#define ANIMALS 16
+typedef struct {
+    const char *name, *line;            /* its name and its own line about what it does */
+    bool joined;
+    int slot;                           /* 1: taken along as Animal A, 2: as Animal B, 0: not */
+} StoryAnimal;
+
+/* Fills `out` from the running game; `joined` gets how many have joined. Returns ANIMALS,
+ * or 0 when this version's text is not read (only the USA version's is). */
+int story_animals(StoryAnimal out[ANIMALS], int *joined);
+
 #endif

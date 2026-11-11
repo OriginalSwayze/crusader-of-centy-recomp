@@ -1213,7 +1213,7 @@ int main(int argc, char **argv) {
                 HdPost here = finishing(1, 0);
                 preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);
                 menu_select(menu_tab, menu_row);
-                for (int k = 0; k < abs(map_step); k++) automap_view_step(map_step < 0 ? -1 : 1);
+                for (int k = 0; k < abs(map_step); k++) menu_side_step(map_step < 0 ? -1 : 1);
             }
             menu_render(1.0);
             png_write(menu_shot, ui_px, ui_w, ui_h, ui_w);

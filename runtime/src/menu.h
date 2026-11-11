@@ -40,4 +40,7 @@ extern void (*menu_sound)(int kind);
  * tab bar); for screenshots in tests. */
 void menu_select(int tab, int row);
 
+/* Left / right on the selected row when it is shown on the right (the map, the journal). */
+void menu_side_step(int dir);
+
 #endif

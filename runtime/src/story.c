@@ -64,8 +64,9 @@ static const char *punct(uint8_t b) {
     }
 }
 
-/* Reads one message; names the flags it sets that have no name yet. */
-static void read_message(uint32_t a, int bank, int also) {
+/* Reads one message; names the flags it sets that have no name yet. With who_out (32 bytes)
+ * and line_out (256), only gives its speaker and line instead (false if it does not read). */
+static bool read_message(uint32_t a, int bank, int also, char *who_out, char *line_out) {
     char text[900];
     int n = 0, unknown = 0, flags[8], nflags = 0;
     if (also >= 0) flags[nflags++] = also;
@@ -92,14 +93,14 @@ static void read_message(uint32_t a, int bank, int also) {
         }
     }
     text[n] = 0;
-    if (!nflags || unknown > 4) return;
+    if ((!who_out && !nflags) || unknown > 4) return false;
     while (n && text[n - 1] == ' ') text[--n] = 0;
     /* "Name:"line"": the speaker, then the line without its quotes. */
     char *speaker = "", *said = text, *colon = strchr(text, ':');
-    if (colon && colon - text < 20 && colon[1] == '"') {
+    if (colon && colon - text < 20 && (colon[1] == '"' || (colon[1] == ' ' && colon[2] == '"'))) {
         *colon = 0;
         speaker = text;
-        said = colon + 1;
+        said = colon + (colon[1] == ' ' ? 2 : 1);
     }
     /* A speaker shown by a portrait, not a name, leaves a bare ':' before the quote. */
     for (char *p = said, *q = said; ; p++) {
@@ -109,8 +110,13 @@ static void read_message(uint32_t a, int bank, int also) {
     if (*said == '"') said++;
     size_t len = strlen(said);
     if (len && said[len - 1] == '"') said[--len] = 0;
-    if (len < 4) return;
-    if (also >= 0 && strstr(said, "Yes") && strstr(said, "No") && len < 16) return;   /* only a choice */
+    if (len < 4) return false;
+    if (who_out) {
+        snprintf(who_out, 32, "%s", speaker);
+        snprintf(line_out, 256, "%s", said);
+        return true;
+    }
+    if (also >= 0 && strstr(said, "Yes") && strstr(said, "No") && len < 16) return false;   /* only a choice */
     for (int i = 0; i < nflags; i++) {
         int f = flags[i];
         if (f < 0 || f >= FLAGS || line[f]) continue;
@@ -119,6 +125,7 @@ static void read_message(uint32_t a, int bank, int also) {
         bank_of[f] = bank;
         named++;
     }
+    return true;
 }
 
 static void name_flags(void) {
@@ -134,7 +141,7 @@ static void name_flags(void) {
         for (int g = 0; g < groups; g++) {
             uint32_t group = bank + rom16(bank + (uint32_t)g * 2);
             int messages = list_len(group, 2, 256);
-            for (int m = 0; m < messages; m++) read_message(group + rom16(group + (uint32_t)m * 2), b, -1);
+            for (int m = 0; m < messages; m++) read_message(group + rom16(group + (uint32_t)m * 2), b, -1, NULL, NULL);
         }
     }
     /* Scripts' "say this, then set that flag" (see the top). */
@@ -154,7 +161,7 @@ static void name_flags(void) {
         if (g >= list_len(bank, 2, 64)) continue;
         uint32_t group = bank + rom16(bank + (uint32_t)g * 2);
         if (m >= list_len(group, 2, 256)) continue;
-        read_message(group + rom16(group + (uint32_t)m * 2), b, f);
+        read_message(group + rom16(group + (uint32_t)m * 2), b, f, NULL, NULL);
     }
 }
 
@@ -214,4 +221,54 @@ void story_save(const char *base_dir) {
     fwrite(order, sizeof order[0], (size_t)norder, f);
     fclose(f);
     dirty = false;
+}
+
+/* ---- Animals ---------------------------------------------------------------------------- *
+ * $FFFE6A holds the animals that have joined, one bit each; $FFFE72 / $FFFE74 the two taken
+ * along (Animal A and B: a bit number, 0 for none); $FFFE6E the others. Animal k is bit k,
+ * 5 to 20: bank 1, group 0, message k is that animal's own line about what it does (the
+ * game's animal window), so its name is the speaker. Kitty (5) revives Corona once and
+ * leaves ($7674); Batty and Edgar (18, 19) leave once used. Read for the USA version only. */
+#define ANIMAL_FIRST 5
+#define ANIMAL_LAST  20
+
+static char animal_name[ANIMALS][32], animal_line[ANIMALS][256];
+static const GameVersion *animals_for;
+static bool animals_read;
+
+static void read_animals(void) {
+    if (animals_for == game) return;
+    animals_for = game;
+    animals_read = false;
+    if (!game || strcmp(game->id, "us")) return;
+    uint32_t bank = TEXT_BASE + rom32(TEXT_BASE + 1 * 4);
+    uint32_t group = bank + rom16(bank);
+    if (list_len(group, 2, 256) <= ANIMAL_LAST) return;
+    for (int k = 0; k < ANIMALS; k++) {
+        animal_name[k][0] = animal_line[k][0] = 0;
+        if (!read_message(group + rom16(group + (uint32_t)(ANIMAL_FIRST + k) * 2), 1, -1, animal_name[k], animal_line[k]) || !animal_name[k][0])
+            return;
+    }
+    animals_read = true;
+}
+
+static uint32_t ram32(uint32_t a) { return (uint32_t)bus.ram[a & 0xFFFF] << 24 | bus.ram[(a + 1) & 0xFFFF] << 16 | bus.ram[(a + 2) & 0xFFFF] << 8 | bus.ram[(a + 3) & 0xFFFF]; }
+static int ram16(uint32_t a) { return bus.ram[a & 0xFFFF] << 8 | bus.ram[(a + 1) & 0xFFFF]; }
+
+int story_animals(StoryAnimal out[ANIMALS], int *joined) {
+    read_animals();
+    *joined = 0;
+    if (!animals_read) return 0;
+    uint32_t have = ram32(0xFE6A);
+    int a = ram16(0xFE72), b = ram16(0xFE74);
+    for (int k = 0; k < ANIMALS; k++) {
+        int bit = ANIMAL_FIRST + k;
+        out[k].name = animal_name[k];
+        out[k].line = animal_line[k];
+        out[k].joined = (have >> bit) & 1;
+        out[k].slot = a == bit ? 1 : b == bit ? 2 : 0;
+        if (out[k].slot) out[k].joined = true;
+        *joined += out[k].joined;
+    }
+    return ANIMALS;
 }

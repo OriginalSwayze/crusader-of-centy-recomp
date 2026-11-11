@@ -86,7 +86,7 @@ static const char *about(const Item *it) {
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
-        case ACT_JOURNAL: return "The story so far: each event as the game's own line that marks it, newest first.";
+        case ACT_JOURNAL: return "The story so far, each event as the game's own line that marks it; \xE2\x86\x90 \xE2\x86\x92 for the animals: who has joined, who is along, and what each can do.";
         case ACT_MAP: return "Fills in as you explore, with your place blinking. Doors you have been through are marked with the area they lead to; \xE2\x86\x90 \xE2\x86\x92 look at the other areas.";
         case ACT_PRESET_ORIGINAL: return "Everything as the cartridge was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound and saves stay as they are.";
         case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, blended dither, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
@@ -367,11 +367,15 @@ static void open_common(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, in
     }
 }
 
+/* The Journal row's view: 0 the story, 1 the animals (left / right). */
+static int journal_view;
+
 void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
                int out_w, int out_h, float window_to_pixels) {
     if (launcher) open_ = false;
     launcher = false;
     automap_view_reset();
+    journal_view = 0;
     open_common(fb, fb_w, fb_h, fb_pitch, game_x, game_y, game_w, game_h, out_w, out_h, window_to_pixels);
 }
 
@@ -596,7 +600,7 @@ MenuAction menu_event(const SDL_Event *e) {
     }
     if (!dir && !activate) return MENU_NONE;
     if (dir && item_at(selected) && item_at(selected)->kind == ITEM_ACTION) {
-        if (item_at(selected)->id == ACT_MAP) { automap_view_step(dir); sound(0); }
+        menu_side_step(dir);
         return MENU_NONE;
     }
     return act(dir, activate);
@@ -679,6 +683,14 @@ static void draw_slot_picture(float alpha) {
     ui_draw_text("\xE2\x86\x90 \xE2\x86\x92  change slot", FONT, 14, 400, 0, PIC_X, TEXT_Y + 28, C_DIM, C_DIM, alpha);
 }
 
+/* Left / right on a row shown on the right: the map's area, the journal's view. */
+void menu_side_step(int dir) {
+    const Item *it = item_at(selected);
+    if (!it || it->kind != ITEM_ACTION) return;
+    if (it->id == ACT_MAP) { automap_view_step(dir); sound(0); }
+    if (it->id == ACT_JOURNAL) { journal_view ^= 1; sound(0); }
+}
+
 /* `s` cut to fit `w`, with an ellipsis when cut. */
 static void fit_text(char *out, size_t n, const char *s, const char *face, float px, int weight, float w) {
     snprintf(out, n, "%s", s);
@@ -693,8 +705,61 @@ static void fit_text(char *out, size_t n, const char *s, const char *face, float
     }
 }
 
+/* The journal's second view: the animals, from the game's own animal window text (story.c). */
+static void draw_animals(float alpha) {
+    StoryAnimal an[ANIMALS];
+    int joined, n = story_animals(an, &joined);
+    if (!n) {
+        draw_wrapped("The animals are read from the USA cartridge's text; this version's is not read yet.", PIC_X, PIC_Y + 6, PIC_W, 15.5f, C_FAINT, alpha);
+        return;
+    }
+    char head[96];
+    snprintf(head, sizeof head, "%d of %d animals", joined, n);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X, PIC_Y + 2, C_TEXT, C_TEXT, alpha);
+    snprintf(head, sizeof head, "%d%%", joined * 100 / n);
+    float hw = ui_text_width(head, FONT_SB, 17, 600, 0);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X + PIC_W - hw, PIC_Y + 2, C_GOLD, C_GOLD, alpha);
+    float by = PIC_Y + 32;
+    ui_fill_rect(PIC_X, by, PIC_W, 4, C_LINE, alpha);
+    ui_fill_rect(PIC_X, by, PIC_W * joined / (float)n, 4, C_GOLD, alpha);
+    /* Taken along: Animal A and B. */
+    float y = by + 18;
+    for (int s = 1; s <= 2; s++) {
+        const char *who = NULL;
+        for (int k = 0; k < n; k++) if (an[k].slot == s) who = an[k].name;
+        float x = PIC_X + (s - 1) * PIC_W / 2;
+        ui_draw_text(s == 1 ? "ANIMAL A" : "ANIMAL B", FONT_SB, 12, 600, 1.5f, x, y, C_DIM, C_DIM, alpha);
+        ui_draw_text(who ? who : "\xE2\x80\x94", FONT_SB, 16, 600, 0, x, y + 15, who ? C_GOLD : C_FAINT, who ? C_GOLD : C_FAINT, alpha);
+    }
+    y += 58;
+    ui_fill_rect(PIC_X, y - 12, PIC_W, 1, C_LINE, alpha);
+    const float name_w = 104;
+    for (int k = 0; k < n; k++) {
+        char buf[256];
+        Rgb col = an[k].slot ? C_GOLD : an[k].joined ? C_TEXT : C_FAINT;
+        ui_draw_text(an[k].joined ? an[k].name : "? ? ?", FONT_SB, 14.5f, 600, 0, PIC_X, y, col, col, alpha);
+        if (an[k].joined) {
+            fit_text(buf, sizeof buf, an[k].line, FONT, 14, 400, PIC_W - name_w);
+            ui_draw_text(buf, FONT, 14, 400, 0, PIC_X + name_w, y + 1, C_DIM, C_DIM, alpha);
+        }
+        y += 23;
+    }
+}
+
 /* The journal: the story so far, from the game's own lines (story.c). */
 static void draw_journal(float alpha) {
+    /* The two views, left / right between them. */
+    float x = PIC_X;
+    const char *views[2] = { "STORY", "ANIMALS" };
+    ui_draw_text("\xE2\x86\x90", FONT, 13, 400, 0, x, PIC_Y - 34, C_FAINT, C_FAINT, alpha);
+    x += 22;
+    for (int v = 0; v < 2; v++) {
+        Rgb c = v == journal_view ? C_GOLD : C_DIM;
+        ui_draw_text(views[v], FONT_SB, 12, 600, 1.5f, x, PIC_Y - 32, c, c, alpha);
+        x += ui_text_width(views[v], FONT_SB, 12, 600, 1.5f) + 18;
+    }
+    ui_draw_text("\xE2\x86\x92", FONT, 13, 400, 0, x - 4, PIC_Y - 34, C_FAINT, C_FAINT, alpha);
+    if (journal_view) { draw_animals(alpha); return; }
     StoryEvent ev[16];
     int done, total, n = story_events(ev, 16, &done, &total);
     if (!total) {

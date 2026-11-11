@@ -30,6 +30,8 @@ Status markers:
 | Enemy types | `$1B2D8`, 32 bytes a type (type - 1): +0 set-up routine (writes the type, then the starting health), +$0C hitbox offset and +$10 size; spawned at `$19D3E`, health doubled when `$FFC01C` is set. Most foes start with 1-4 points; the 64-pixel ones ($0E, $1E, $36, $47, $81) and the late guardians ($60-$6A) 6-32 | boss bar |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
+| Animals | `$FFFE6A` (long) the animals that have joined, bit k for animal k (5-20: Kitty, Mac, Moa, Inferno, Chilly, Flash, Dippy, Dodo, Leviathan, Wong, Cecil, Pieces, Rio, Batty, Edgar, Monarchy); `$FFFE72` / `$FFFE74` the two taken along (Animal A / B, 0 for none); `$FFFE6E` the joined ones not taken along. Script command `$030C78` adds one. Kitty is used up when Corona dies (`$7674`), Batty and Edgar after use (`$CB02`, `$CC92`). Text bank 1 group 0, message k: animal k's own line (the game's animal window) | journal |
+| Place names | Text bank 0 group 3: 21 names (Soleil Town, Rafflesia School, Dahlia Valley, ... Black Night); read at `$32F6` / `$48D0` by an index (not the area number) | map (later) |
 | Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. Objects run scripts (a word per command, handlers at `$0308DA`, position at +$30; `$FFFF` ends a tick): `$030CC8` gives an object a line and a flag (+$3A/+$3C/+$3E message, +$38 flag), set by `$032C44` once the line is read; `$030AC6` / `$030ADA` set / clear a flag; `$030B22` sets +$38 alone (items: `$02F2B4` sets it when picked up). 102 flags are named from dialogue and these lines (Paused > Journal). The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave, journal |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
@@ -78,7 +80,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 | Item | Status |
 |---|---|
-| Companion status indicators, information screen, ability descriptions, discovered list, showcase | Map: find the companion slots and the "met" flags, then a menu page |
+| Companion status indicators, information screen, ability descriptions, discovered list, showcase | Done: Paused > Journal, then right: joined count, Animal A / B, each animal's own line, the unmet ones hidden |
 | Quick companion selection | Map, Hard: must go through the game's own selection code to keep it safe |
 | Companion particle effects, visual feedback on abilities | Map |
 | New companion animations, idle animations, reactions, better following | Out for now: these need new sprite frames and changes to the game's AI, which would alter the original artwork and behaviour; possible later as an optional texture/animation pack |
@@ -121,4 +123,4 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 1. Story flags: 102 named (Paused > Journal); the rest are items picked up (`$030B22`), script commands with no line (`$030AC6`), first visits (the table at `$38B8`) and code. Naming them needs the areas named too.
 2. Vegetation swaying: needs each area's plant tiles listed (tree tops share plane B with the lawns).
-3. Companion pages, then the larger modes (New Game+, Boss Rush).
+3. Place names on the map (the area number to place index link), then the larger modes (New Game+, Boss Rush).
