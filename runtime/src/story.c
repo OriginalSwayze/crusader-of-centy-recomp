@@ -272,3 +272,50 @@ int story_animals(StoryAnimal out[ANIMALS], int *joined) {
     }
     return ANIMALS;
 }
+
+/* ---- Places ----------------------------------------------------------------------------- *
+ * Text bank 0, group 3: the 21 place names (Soleil Town, Rafflesia School, ...). The world
+ * map's entrances are listed at $35A2, $16 bytes each up to $FFFF: +$04 the area one arrives
+ * in, +$0A its place. $FFFE7A holds the entrance area of the region the player is in; the
+ * game names the place by finding it in that list ($487A), except in region $47, where the
+ * area itself ($FFFE76) is looked up when it is $27, $2D, $3C, $3D or $40. */
+#define PLACES     21
+#define ENTRANCES  0x35A2
+
+static char place_name[PLACES][64];
+static const GameVersion *places_for;
+static int places;
+
+static void read_places(void) {
+    if (places_for == game) return;
+    places_for = game;
+    places = 0;
+    if (!game || strcmp(game->id, "us")) return;
+    uint32_t bank = TEXT_BASE + rom32(TEXT_BASE);
+    uint32_t group = bank + rom16(bank + 3 * 2);
+    int n = list_len(group, 2, PLACES);
+    for (int k = 0; k < n; k++) {
+        char who[32], line[256];
+        if (!read_message(group + rom16(group + (uint32_t)k * 2), 0, -1, who, line) || who[0]) break;
+        snprintf(place_name[k], sizeof place_name[k], "%s", line);
+        places = k + 1;
+    }
+}
+
+const char *story_place_name(int index) {
+    read_places();
+    return index >= 1 && index < places ? place_name[index] : NULL;   /* 0 is the game's title */
+}
+
+int story_place_now(void) {
+    read_places();
+    if (!places) return -1;
+    int region = ram16(0xFE7A), area = ram16(0xFE76);
+    if (region == 0x47 && (area == 0x27 || area == 0x2D || area == 0x3C || area == 0x3D || area == 0x40)) region = area;
+    for (uint32_t a = ENTRANCES; a + 0x16 < ROM_SIZE && rom16(a) != 0xFFFF; a += 0x16)
+        if (rom16(a + 4) == region) {
+            int p = rom16(a + 0x0A);
+            return p >= 1 && p < places ? p : -1;
+        }
+    return -1;
+}

@@ -13,6 +13,7 @@
  * sprites and the window plane, which are left out; frames in a fade (nothing bright on
  * screen) are skipped, so changing maps does not paint the old one dark. */
 #include "automap.h"
+#include "story.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -38,6 +39,7 @@ typedef struct {
     uint16_t world_w, world_h;          /* the area's size in world pixels (0 until seen) */
     uint16_t ndoors;
     Door door[MAX_DOORS];
+    int8_t place;                       /* the game's place name for it (story.h), -1 unknown */
 } Area;
 
 static Area areas[MAX_MAPS];
@@ -82,7 +84,7 @@ static Area *find(uint32_t key, bool make) {
         for (int i = 1; i < count; i++) if (areas[i].used < a->used) a = &areas[i];
         free_area(a);
     }
-    a->key = key; a->used = ++clock_;
+    a->key = key; a->used = ++clock_; a->place = -1;
     return a;
 }
 
@@ -125,6 +127,8 @@ void automap_frame(const HdFrame *f, bool world, float cam_x, float cam_y) {
     }
     here = find(key, true);
     if (!here) return;
+    int place = story_place_now();
+    if (place > 0) here->place = (int8_t)place;
     int ww = (int)peek16(0xA4FC) + 320, wh = (int)peek16(0xA500) + 224;
     if (ww > 320 && ww <= GRID * CHUNK * CELL) here->world_w = (uint16_t)ww;
     else if (ww == 320) here->world_w = 320;
@@ -267,6 +271,7 @@ void automap_info(AutomapInfo *o) {
     }
     if (!a) return;
     o->map = (int)(a->key & 0xFFFF);
+    o->place = a->place > 0 ? story_place_name(a->place) : NULL;
     o->doors = a->ndoors;
     o->current = a == here;
     if (!a->world_w || !a->world_h) return;
@@ -282,7 +287,7 @@ void automap_info(AutomapInfo *o) {
 }
 
 /* ---- automap.bin: "CCAM", version, area count; per area its key, chunk count and (from version 2) size, then
- * per chunk its index and pixels, then (from version 3) its door count and doors ------------------------------------------------------------ */
+ * per chunk its index and pixels, then (from version 3) its door count and doors, then (from version 4) its place ------------------------------------------------------------ */
 #define MAGIC 0x4D414343u
 
 void automap_save(const char *base_dir) {
@@ -290,7 +295,7 @@ void automap_save(const char *base_dir) {
     snprintf(path, sizeof path, "%sautomap.bin", base_dir);
     FILE *f = fopen(path, "wb");
     if (!f) return;
-    uint32_t head[3] = { MAGIC, 3, (uint32_t)count };
+    uint32_t head[3] = { MAGIC, 4, (uint32_t)count };
     fwrite(head, sizeof head, 1, f);
     for (int i = 0; i < count; i++) {
         uint32_t n = 0;
@@ -308,6 +313,8 @@ void automap_save(const char *base_dir) {
             uint32_t rec[2] = { (uint32_t)(uint16_t)areas[i].door[d].x << 16 | (uint16_t)areas[i].door[d].y, areas[i].door[d].to };
             fwrite(rec, sizeof rec, 1, f);
         }
+        int32_t place = areas[i].place;
+        fwrite(&place, sizeof place, 1, f);
     }
     fclose(f);
 }
@@ -318,7 +325,7 @@ void automap_load(const char *base_dir) {
     FILE *f = fopen(path, "rb");
     if (!f) return;
     uint32_t head[3];
-    if (fread(head, sizeof head, 1, f) == 1 && head[0] == MAGIC && head[1] >= 1 && head[1] <= 3)
+    if (fread(head, sizeof head, 1, f) == 1 && head[0] == MAGIC && head[1] >= 1 && head[1] <= 4)
         for (uint32_t i = 0; i < head[2] && i < MAX_MAPS; i++) {
             uint32_t a[3] = { 0, 0, 0 };
             uint32_t na = head[1] >= 2 ? 3 : 2;
@@ -341,6 +348,9 @@ void automap_load(const char *base_dir) {
                 if (ok) ar->door[d] = (Door){ (int16_t)(rec[0] >> 16), (int16_t)rec[0], rec[1] };
             }
             if (ok) ar->ndoors = (uint16_t)nd;
+            int32_t place = -1;
+            if (ok && head[1] >= 4) ok = fread(&place, sizeof place, 1, f) == 1;
+            if (ok) ar->place = (int8_t)(place >= 1 && place < 32 ? place : -1);
             if (!ok) break;
         }
     fclose(f);

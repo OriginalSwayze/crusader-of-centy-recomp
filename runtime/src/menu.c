@@ -819,7 +819,8 @@ static void draw_side(float t, float alpha) {
         AutomapInfo mi;
         automap_info(&mi);
         char line[128], sub[128];
-        snprintf(line, sizeof line, "Area %d%s", mi.map, mi.current ? "  \xC2\xB7  you are here" : "");
+        if (mi.place) snprintf(line, sizeof line, "%s  \xC2\xB7  area %d%s", mi.place, mi.map, mi.current ? "  \xC2\xB7  you are here" : "");
+        else snprintf(line, sizeof line, "Area %d%s", mi.map, mi.current ? "  \xC2\xB7  you are here" : "");
         ui_draw_text(line, FONT_SB, 16, 600, 0, PIC_X, TEXT_Y, C_TEXT, C_TEXT, alpha);
         if (mi.areas > 1) {
             snprintf(sub, sizeof sub, "\xE2\x86\x90 %d of %d \xE2\x86\x92", mi.index, mi.areas);

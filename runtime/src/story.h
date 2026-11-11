@@ -38,4 +38,9 @@ typedef struct {
  * or 0 when this version's text is not read (only the USA version's is). */
 int story_animals(StoryAnimal out[ANIMALS], int *joined);
 
+/* Place names (USA text only): the name of place `index` (1-20), or NULL; and the place the
+ * player is in now (its index, -1 if not known). */
+const char *story_place_name(int index);
+int story_place_now(void);
+
 #endif

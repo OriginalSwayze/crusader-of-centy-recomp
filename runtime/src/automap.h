@@ -29,7 +29,7 @@ bool automap_draw(float x, float y, float w, float h, float t, float alpha);
 /* About the shown area: its map number, its place among the areas seen (1-based) and how many
  * those are, how much of it has been seen (0-100, -1 when its size is not known yet), its
  * doors found, and whether it is the one the player is in. */
-typedef struct { int map, index, areas, percent, doors; bool current; } AutomapInfo;
+typedef struct { int map, index, areas, percent, doors; bool current; const char *place; } AutomapInfo;
 void automap_info(AutomapInfo *out);
 
 #endif
