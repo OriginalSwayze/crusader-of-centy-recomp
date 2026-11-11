@@ -729,6 +729,8 @@ int main(int argc, char **argv) {
     bool controls_shot = false;
     int menu_tab = -1, menu_row = 0;    /* --menu-tab TAB ROW, with --menu-shot */
     int ngplus_at = -1;                 /* --ngplus-at N */
+    int autopilot_from = 0;             /* --autopilot-from F: the autopilot waits until frame F */
+    int warp_at = -1, warp_area = 0, warp_entry = 0;   /* --warp F AREA ENTRY */
     int map_step = 0;                   /* --map-step N: the map shows the Nth area on from this one */
     bool save_preview = false;          /* --save-preview: keep the last frame for the launcher's previews */
     int save_to = 0;
@@ -795,6 +797,8 @@ int main(int argc, char **argv) {
             settings.internal_scale = atoi(argv[++i]);
             settings.smooth_motion = true;
         }
+        else if (!strcmp(argv[i], "--autopilot-from") && i + 1 < argc) autopilot_from = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--warp") && i + 3 < argc) { warp_at = atoi(argv[++i]); warp_area = (int)strtol(argv[++i], NULL, 0); warp_entry = atoi(argv[++i]); }   /* tests: go to an area as a door does */
         else if (!strcmp(argv[i], "--ngplus-at") && i + 1 < argc) ngplus_at = atoi(argv[++i]);   /* tests: start New Game+ (and reset) at frame N */
         else if (!strcmp(argv[i], "--dither-blend") && i + 1 < argc) settings.dither_blend = hd_dither_blend = atoi(argv[++i]) != 0;   /* tests: 0 or 1 */
         else if (!strcmp(argv[i], "--test-boss") && i + 1 < argc) { extern int combat_test_boss; combat_test_boss = atoi(argv[++i]); }
@@ -970,11 +974,16 @@ int main(int argc, char **argv) {
         for (int f = 0; f < headless_frames; f++) {
             if (profile_frames && f == headless_frames - profile_frames) pc_profile = calloc(ROM_SIZE / 2, 4);
             pad_state[0] = scripted_pad(f);
+            if (f == warp_at) {   /* --warp: as a door does ($01C7DA) */
+                bus.ram[0xFE76] = (uint8_t)(warp_area >> 8); bus.ram[0xFE77] = (uint8_t)warp_area;
+                bus.ram[0xFE78] = (uint8_t)(warp_entry >> 8); bus.ram[0xFE79] = (uint8_t)warp_entry;
+                bus.ram[0xA4D6] = 0; bus.ram[0xA4D7] = 1;
+            }
             if (f == ngplus_at) {   /* --ngplus-at: pretend progress (24 health, 1234 money), then New Game+ */
                 bus.ram[0xFE60] = 0; bus.ram[0xFE61] = 24; bus.ram[0xFE66] = 0x04; bus.ram[0xFE67] = 0xD2;
                 if (ngplus_start()) machine_reset(); else printf("new game+: no game in play\n");
             }
-            if (autopilot && f > 30) {   /* --autopilot: find a fight; the script walks when there is none */
+            if (autopilot && f > 30 && f >= autopilot_from) {   /* --autopilot: find a fight; the script walks when there is none */
                 uint16_t ap = combat_autopilot(f, autopilot);
                 if (ap || !pad_state[0]) pad_state[0] = ap;
             }
