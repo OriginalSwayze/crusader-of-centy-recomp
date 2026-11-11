@@ -28,7 +28,7 @@ Status markers:
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
-| Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. 83 flags are named this way The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave |
+| Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. 83 flags are named this way (Paused > Journal). The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave, journal |
 
 Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1C94E`
 (bigger hits). The Japanese and Korean addresses are found automatically
