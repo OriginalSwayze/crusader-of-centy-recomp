@@ -22,6 +22,7 @@ typedef struct {
     int  filter;                        /* FILTER_* (filter.h): off, scanlines, CRT, LCD */
     int  sharpen;                       /* sharpening: 0 off, 1 light, 2 medium, 3 strong (hd_sharpen) */
     bool no_sprite_limit;               /* the sprite flicker fix */
+    bool smooth_motion;                 /* above 60 Hz: draw between the game's ticks (hd.c, motion.c) */
     /* Effects */
     int  lighting;                      /* glow of bright pixels: 0 off, 1 soft, 2 bright (hd_post) */
     int  hdr;                           /* HDR look: 0 off, 1 on, 2 strong (hd_post) */
@@ -65,7 +66,7 @@ void settings_save(const char *path);
 /* Options the launcher and the in-game menu show: a value label, and stepping it. */
 enum {
     OPT_WIDESCREEN, OPT_WINDOW_ALL,     /* fullscreen or a window size, in one option */
-    OPT_INTEGER, OPT_INTERNAL, OPT_SCALER, OPT_FILTER, OPT_SHARPEN, OPT_FLICKER,
+    OPT_INTEGER, OPT_INTERNAL, OPT_SCALER, OPT_FILTER, OPT_SHARPEN, OPT_FLICKER, OPT_SMOOTH,
     OPT_LIGHTING, OPT_HDR, OPT_PARTICLES, OPT_WATER, OPT_TEXPACK, OPT_DUMP,
     OPT_DIFFICULTY, OPT_CHEAT_HEALTH, OPT_COMBAT, OPT_RUMBLE, OPT_TIMER, OPT_FAST, OPT_AUTOSAVE, OPT_WALK,
     OPT_REWIND_ALL,                     /* rewind off or its buffer size, in one option */

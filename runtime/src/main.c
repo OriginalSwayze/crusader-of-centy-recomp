@@ -738,6 +738,7 @@ int main(int argc, char **argv) {
     double launcher_t = 1;
     bool test_overrides = false;        /* settings overridden on the command line: don't save them */
     const char *hd_shot = NULL;
+    const char *smooth_dir = NULL;     /* --smooth-check DIR SCALE */
     int bench = 0;                      /* --bench N */
     double window_test = 0;             /* --window-test SECONDS F.png */
     const char *window_test_png = NULL;
@@ -783,6 +784,13 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--merged") && i + 1 < argc) { settings.merged_pass = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--avx2") && i + 1 < argc) { settings.avx2 = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--test-burst") && i + 1 < argc) { extern int combat_test_burst; combat_test_burst = atoi(argv[++i]); }
+        else if (!strcmp(argv[i], "--smooth-check") && i + 2 < argc) {
+            /* --smooth-check DIR SCALE: the last 4 frames drawn at 0, 1/3 and 2/3 of the way from
+             * the tick before (as a 180 Hz display would show them), saved as DIR/NN.png. */
+            smooth_dir = argv[++i];
+            settings.internal_scale = atoi(argv[++i]);
+            settings.smooth_motion = true;
+        }
         else if (!strcmp(argv[i], "--test-boss") && i + 1 < argc) { extern int combat_test_boss; combat_test_boss = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--particles") && i + 1 < argc) { settings.particles = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--hdr") && i + 1 < argc) { settings.hdr = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
@@ -1036,6 +1044,17 @@ int main(int argc, char **argv) {
                     printf("%5d", f);
                     for (int k = 0; k < watch_count; k++) printf(" %02X", last[k] = bus.ram[watch[k]]);
                     printf("\n");
+                }
+            }
+            if (smooth_dir && f >= headless_frames - 4) {
+                for (int k = 0; k < 3; k++) {
+                    char p[1200];
+                    float frac = k / 3.f;
+                    hd_compose_at(settings.internal_scale, frac);
+                    int n = (f - (headless_frames - 4)) * 3 + k;
+                    printf("frame %d +%d/3: t=%.2f, %d sprites follow objects\n", f, k, hd_motion_t(frac), hd_owned);
+                    snprintf(p, sizeof p, "%s/%02d.png", smooth_dir, n);
+                    png_write(p, hd_px, hd_w, hd_h, hd_w);
                 }
             }
             if (shot_every && f % shot_every == 0) {
@@ -1484,7 +1503,10 @@ int main(int argc, char **argv) {
         /* The internal resolution this picture: the setting's, or auto quality's step. */
         int iscale = settings.auto_quality && quality_scale ? quality_scale : settings.internal_scale;
         /* Shadows are drawn while the layers are put together, so they need this path too. */
-        bool hd = (iscale > 1 || settings.water || hd_texpack) &&
+        /* Smooth motion only above 60 Hz: at 60 every refresh has a game frame of its own. */
+        SDL_DisplayMode dm;
+        bool smooth = settings.smooth_motion && SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(win), &dm) == 0 && dm.refresh_rate > 70;
+        bool hd = (iscale > 1 || smooth || settings.water || hd_texpack) &&
                   hd_frame.h == vdp_screen_height();
         hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
         Uint64 t_start = SDL_GetPerformanceCounter(), t_layers = t_start, t_effects = t_start, t_upload = t_start;
@@ -1496,12 +1518,14 @@ int main(int argc, char **argv) {
         static int built_scale, built_filter, built_w, built_h;
         static SDL_Texture *built_tex;
         bool reuse = hd && built_tex && built_serial == hd_serial && built_scale == iscale && !settings.water &&
-                     built_filter == settings.filter && built_w == hd_frame.w && built_h == hd_frame.h && !menu_is_open();
+                     built_filter == settings.filter && built_w == hd_frame.w && built_h == hd_frame.h && !menu_is_open() &&
+                     (!smooth || frac >= 1);   /* smooth motion: each picture is its own moment */
         if (hd && reuse) {
             filter_draw(ren, built_tex, NULL, dst, frame_width(), vdp_screen_height(), settings.filter);
         } else if (hd) {
             hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
-            hd_compose(iscale);
+            if (smooth) hd_compose_at(iscale, frac);
+            else hd_compose(iscale);
             t_layers = SDL_GetPerformanceCounter();
             HdPost post = finishing(hd_w / frame_width(), (float)(SDL_GetPerformanceCounter() - start) / freq);
             SDL_Texture *shown = NULL;

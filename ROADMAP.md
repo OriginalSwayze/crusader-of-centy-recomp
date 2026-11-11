@@ -26,6 +26,7 @@ Status markers:
 | Map scrolling | `$188D2` moves the camera; `$624A` draws a column and `$62DE` a row of 16x16 blocks from the map at `$FF2C04` (blocks' tiles at `$FF0000`) | widescreen |
 | Object list | `$FFC800`, 128 records of 0x40: +0 type, +2 health (sixteenths), +4 X, +8 Y (16.16, middle), +20 hit timer, +24 damage waiting | combat info, stats |
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
+| Sprite list | Built once a tick: entries (8 bytes, as the VDP's, x/y + $80) at the address in `$FFA000`, sort keys at `$FFA004`, count `$FFA008`; every entry added by `$019524` (`$019504` first drops off-screen pieces) with the drawing object in a0: an object of `$FFC800`, or `$FFB350` for the player (at `$FFAC12`/`$FFAC16`); the HUD has neither | smooth motion |
 | Enemy types | `$1B2D8`, 32 bytes a type (type - 1): +0 set-up routine (writes the type, then the starting health), +$0C hitbox offset and +$10 size; spawned at `$19D3E`, health doubled when `$FFC01C` is set. Most foes start with 1-4 points; the 64-pixel ones ($0E, $1E, $36, $47, $81) and the late guardians ($60-$6A) 6-32 | boss bar |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
@@ -54,7 +55,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Bloom and glow, colour grading | Done: Lighting, HDR look |
 | CRT, scanlines, screen curvature | Done: Filter (Scanlines, CRT with curvature, LCD) |
 | Chromatic aberration, film grain | Not wanted |
-| Unlocked frame rate | Engine: frames draw at the display's rate; moving sprites between game ticks (smooth motion) needs the sprite-to-object link: Map |
+| Unlocked frame rate | Done: Settings > Display > Smooth motion (above 70 Hz); the planes and each object's sprites drawn between ticks (`runtime/src/motion.c`) |
 | Widescreen camera | Done: 16:10 and 16:9 on the scrolling maps; the field camera ($188D2) keeps the wider view inside the map, its column and row draws reach the sides, 18 near-the-screen checks widened (one is not found in the Japanese and Korean code, `$22E3E`) |
 | Ultrawide | Hard: the plane holds 32 blocks (512 pixels), so the view can grow by 64 pixels a side at most (about 2:1 would need 80) |
 | Original graphics mode, one-click compare | Done: Original / Enhanced experience presets; the menu's preview card shows before/after |
@@ -118,7 +119,6 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Smooth motion (needs which sprites belong to which object).
-2. Story flags: named from dialogue (Paused > Journal); the rest (set by objects, `$02F2B4`, and code) are still unnamed, which New Game+ would need.
-3. World effects that need the camera: vegetation, shadows.
-4. Companion pages, then the larger modes (New Game+, Boss Rush).
+1. Story flags: named from dialogue (Paused > Journal); the rest (set by objects, `$02F2B4`, and code) are still unnamed, which New Game+ would need.
+2. World effects that need the camera: vegetation, shadows.
+3. Companion pages, then the larger modes (New Game+, Boss Rush).

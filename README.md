@@ -38,7 +38,7 @@ interpreter. It shares its recompiler and runtime with
 | Launcher and pause menu (`runtime/src/menu.c`): professional, in the colours of the game's title art and fields (sand, peach, moss, forest green); the launcher shows the real title logo cut from your ROM's title screen, Continue (the newest save state) and New game; Settings in pages (Display, Effects, Gameplay, Sound, Controls, General) with only player-facing options | done |
 | Sound levels: the mix brought down to about -19 dBFS with no clipping (it clipped at the Beyond Oasis gain); the volume setting follows the ear (squared: 50% is about -12 dB, 10% about -40 dB) | done |
 | Widescreen 16:10 and 16:9 (Settings > Display; `runtime/src/widescreen.c`, `config/patches.json`): the scrolling maps drawn wider by the game's own map code, with the camera stopping at the map edges and objects living in the side areas; other screens keep 4:3 with black sides | done; off is exactly the original |
-| Smooth motion | not yet: needs which sprite belongs to which object (`runtime/src/motion.c`); the game updates 60 times a second, so it would only help above 60 Hz |
+| Smooth motion | done: Settings > Display > Smooth motion (`runtime/src/motion.c`); above 60 Hz the scenery and every object are drawn part of the way between the game's ticks, the HUD stays put |
 
 ### Tested
 
@@ -133,7 +133,7 @@ options: `--press`, `--shot F.png`, `--shots EVERY DIR`, `--watch ADDR,...`,
 `--hd-shot F.png SCALE`, `--filter-shot F.png W H MODE`, `--gpu-shot GPU.png CPU.png`,
 `--bench N`, `--pc-profile N`, `--wav F`, `--overclock PERCENT`, `--save-to N`, `--load N`,
 `--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`, `--difficulty N`,
-`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees), `--test-boss N` (a pretend boss hit from frame N, to see the boss bar),
+`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees), `--test-boss N` (a pretend boss hit from frame N, to see the boss bar), `--smooth-check DIR SCALE` (the last 4 frames drawn at thirds between ticks, as a 180 Hz display shows them),
 `--water 0|1`, `--widescreen 0|1|2`, `--trace-ram LO HI` (with `--interpret`: the PC of every write to $FFLO-$FFHI), `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
 
 ## How it fits together

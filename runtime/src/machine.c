@@ -5,6 +5,7 @@
 #include "m68k.h"
 #include "m68kcpu.h"
 #include "recomp_rt.h"
+#include "motion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +41,7 @@ uint32_t stat_ticks, stat_late_ticks;
 
 /* Called for every native block. The spare-time statistics (stat_wait_cycles, stat_ticks,
  * stat_late_ticks) need the game's main loop waits, which are not mapped for this game yet. */
-static void note_block(uint32_t at, int cycles) { (void)at; (void)cycles; }
+static void note_block(uint32_t at, int cycles) { (void)cycles; motion_block(at); }
 static bool irq_taken;                  /* an interrupt started since the last check */
 
 static void recomp_init(void);
