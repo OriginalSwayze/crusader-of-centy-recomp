@@ -30,7 +30,7 @@ interpreter. It shares its recompiler and runtime with
 | Bestiary: every enemy type defeated, with its picture and count | done |
 | Slowdown fix (68000 at 150-300%), sprite flicker fix, fast-forward | done |
 | Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
-| Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
+| Combat info (damage numbers, enemy health bars, a boss bar for foes of 16 points or more), rumble, play timer, stats | done (`runtime/src/combat.c`) |
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
 | Water: streams that swell, foam at the shore and reflect what stands in them (Settings > Effects) | done (`runtime/src/hd.c`): picture only, the game is untouched |
 | Journal (Paused > Journal): the story events done so far, newest first, each named by the game's own line that marks it, read from your cartridge (USA) when it loads; the order met is kept in `journal.bin` | done (`runtime/src/story.c`) |
@@ -133,7 +133,7 @@ options: `--press`, `--shot F.png`, `--shots EVERY DIR`, `--watch ADDR,...`,
 `--hd-shot F.png SCALE`, `--filter-shot F.png W H MODE`, `--gpu-shot GPU.png CPU.png`,
 `--bench N`, `--pc-profile N`, `--wav F`, `--overclock PERCENT`, `--save-to N`, `--load N`,
 `--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`, `--difficulty N`,
-`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees),
+`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees), `--test-boss N` (a pretend boss hit from frame N, to see the boss bar),
 `--water 0|1`, `--widescreen 0|1|2`, `--trace-ram LO HI` (with `--interpret`: the PC of every write to $FFLO-$FFHI), `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
 
 ## How it fits together

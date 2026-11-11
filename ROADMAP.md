@@ -19,13 +19,14 @@ Status markers:
 
 | What | Where (USA) | Used for |
 |---|---|---|
-| Player X / Y | `$FFAC12` / `$FFAC16` (object record at `$FFAC00`, 0x54 bytes per object) | camera, effects, map, health bars (next) |
+| Player X / Y | `$FFAC12` / `$FFAC16` (object record at `$FFAC00`, 0x54 bytes per object) | camera, effects, map |
 | Health / max health (apples) | `$FFFE62` / `$FFFE60` | infinite health, HUD |
 | Hit / heal routine | `$6B36`: adds `$FFB100` to the health at `$6B60` | difficulty, infinite health (`config/patches.json`), tested on a real hit |
 | Camera X / Y | `$FFA4F2` / `$FFA4F6` (world pixels, picture's top left); limits `$FFA4FA`-`$FFA500`, held while `$FFA4DE` is set | combat info, map, widescreen |
 | Map scrolling | `$188D2` moves the camera; `$624A` draws a column and `$62DE` a row of 16x16 blocks from the map at `$FF2C04` (blocks' tiles at `$FF0000`) | widescreen |
 | Object list | `$FFC800`, 128 records of 0x40: +0 type, +2 health (sixteenths), +4 X, +8 Y (16.16, middle), +20 hit timer, +24 damage waiting | combat info, stats |
 | Object update / damage | `$1C398` loops the list; `$1C45E` applies +24 to +2 at `$1C4E6`, defeat at `$1C4EE` | combat info |
+| Enemy types | `$1B2D8`, 32 bytes a type (type - 1): +0 set-up routine (writes the type, then the starting health), +$0C hitbox offset and +$10 size; spawned at `$19D3E`, health doubled when `$FFC01C` is set. Most foes start with 1-4 points; the 64-pixel ones ($0E, $1E, $36, $47, $81) and the late guardians ($60-$6A) 6-32 | boss bar |
 | "In play" | the player record's first word `$FFAC00` is 0 until play starts | effects only during play |
 | Current map | `$FFFE76` (6 = the house at the start; a door sets it from its object's +$1A at `$1C7DA`) | auto-map |
 | Story flags | 512 bits, live at `$FFC500`, copied into the game's save at `$FFFE0A` when it saves (`$30B98`); event scripts set them at `$3079E` (both copies) and `$30794` (live only), clear at `$307BE`. Dialogue sets most: text code `$E0 hi lo` sets a flag, `$E1 hi lo` clears one (`$03329E`); the text table is at `$1C0000` (bank, group, message; read at `$0331D0`), letters `$0B`-`$3E`. 83 flags are named this way (Paused > Journal). The save itself is `$FFFE00`-`$FFFEAB` with a checksum at `$FEAA` | autosave, journal |
@@ -89,7 +90,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Quick-save / quick-load, save anywhere | Done: F2 / F4 save states work anywhere |
 | Difficulty: Original, Easy, Hard, Very hard | Done: PLAY > Difficulty (damage taken 100 / 50 / 150 / 200%) |
 | Infinite health | Done: PLAY > Infinite health |
-| Enemy / boss health bars, damage numbers | Done, confirmed in a fight: PLAY > Combat info (`runtime/src/combat.c`) |
+| Enemy / boss health bars, damage numbers | Done: PLAY > Combat info (`runtime/src/combat.c`); foes of 16 points or more get a wide boss bar at the bottom (seen with `--test-boss`; no boss save state yet) |
 | Autosave at progression points | Done: GAMEPLAY > Autosave (on by default): a save state in its own slot two seconds after a story flag is newly set; Paused > Load autosave, and the launcher's Continue offers it when it is the newest |
 | Movement speed option | Done: GAMEPLAY > Walking speed (Original, Faster 125%, Fastest 150%): the player's step each frame (`$9256` X, `$9280` Y) is scaled while a direction is held, so scenes keep their pace; walls still stop you |
 | Gameplay statistics, playtime, death counter, defeats | Done: GAME > Stats (`stats.ini`), PLAY > Play timer |
@@ -117,7 +118,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 ## Next steps, in order
 
-1. Confirm boss fights show bars. Story flags: named from dialogue (Paused > Journal); the rest (set by objects, `$02F2B4`, and code) are still unnamed, which New Game+ would need.
-2. Smooth motion (needs which sprites belong to which object).
-4. World effects that need the camera: vegetation, shadows, day/night.
-5. Companion pages, then the larger modes (New Game+, Boss Rush).
+1. Smooth motion (needs which sprites belong to which object).
+2. Story flags: named from dialogue (Paused > Journal); the rest (set by objects, `$02F2B4`, and code) are still unnamed, which New Game+ would need.
+3. World effects that need the camera: vegetation, shadows.
+4. Companion pages, then the larger modes (New Game+, Boss Rush).

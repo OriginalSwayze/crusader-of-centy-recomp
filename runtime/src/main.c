@@ -783,6 +783,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--merged") && i + 1 < argc) { settings.merged_pass = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--avx2") && i + 1 < argc) { settings.avx2 = atoi(argv[++i]) != 0; test_overrides = true; }
         else if (!strcmp(argv[i], "--test-burst") && i + 1 < argc) { extern int combat_test_burst; combat_test_burst = atoi(argv[++i]); }
+        else if (!strcmp(argv[i], "--test-boss") && i + 1 < argc) { extern int combat_test_boss; combat_test_boss = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--particles") && i + 1 < argc) { settings.particles = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--hdr") && i + 1 < argc) { settings.hdr = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--lighting") && i + 1 < argc) { settings.lighting = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
@@ -955,7 +956,10 @@ int main(int argc, char **argv) {
         for (int f = 0; f < headless_frames; f++) {
             if (profile_frames && f == headless_frames - profile_frames) pc_profile = calloc(ROM_SIZE / 2, 4);
             pad_state[0] = scripted_pad(f);
-            if (autopilot && f > 30) pad_state[0] = combat_autopilot(f, autopilot);   /* --autopilot: find a fight */
+            if (autopilot && f > 30) {   /* --autopilot: find a fight; the script walks when there is none */
+                uint16_t ap = combat_autopilot(f, autopilot);
+                if (ap || !pad_state[0]) pad_state[0] = ap;
+            }
             /* --switch-language F ID: at frame F, change the language as the pause menu does. */
             if (f == switch_at && switch_to) {
                 for (int k = 0; k < SETTINGS_VERSIONS && strcmp(settings.language, switch_to); k++)

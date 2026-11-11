@@ -15,7 +15,13 @@
  * After each game frame the objects' health is compared with the frame before: a drop is a
  * hit (a number rises from the object and its health bar shows), a drop to 0 a defeat.
  * Both throw particles (the Hit effects setting): sparks from a hit, and from a defeat a
- * flash, a ring and a burst of embers and leaves, which fall and fade. */
+ * flash, a ring and a burst of embers and leaves, which fall and fade.
+ *
+ * Bosses: each type's set-up ($1B2D8, 32 bytes a type: the routine first) writes its type and
+ * then its health, in sixteenths. Most foes start with 1 to 4 points; the large ones (64 pixel
+ * hitboxes: types $0E, $1E, $36, $47, $81) and the late guardians 16 to 32. A foe of 16 points
+ * or more (BOSS_HP) gets the boss bar at the bottom of the picture from its first hit until it
+ * is gone, instead of the small bar over it. */
 #include "combat.h"
 
 #include <math.h>
@@ -42,7 +48,10 @@ typedef struct {
     float x, y;                         /* its middle, world pixels */
     int bar_age;                        /* frames since it was last hurt; <0: no bar */
     float shown;                        /* the bar's pale part, catching up with the health */
+    bool boss;                          /* hurt, and BOSS_HP or more: shown on the boss bar */
 } Slot;
+#define BOSS_HP 0x100                   /* 16 points */
+static struct { int slot, fade; uint16_t hp, max; float shown; } boss = { -1, 0, 0, 0, 0 };
 static Slot slots[SLOTS];
 static uint16_t player_hp;
 static bool have_last;
@@ -60,6 +69,8 @@ static struct {
 static double session_s;
 bool combat_headless;                   /* test runs: effects as in play, stats untouched */
 int combat_test_burst;                  /* --test-burst N: frames until a test burst */
+int combat_test_boss;                   /* --test-boss N: frames until a pretend boss is hit (tests) */
+static int test_boss_age = -1;
 bool combat_log;                        /* --combat-log: print every hit and defeat (tests) */
 static uint32_t session_defeated;
 
@@ -264,7 +275,11 @@ static void beasts_save(const char *base_dir) {
     beasts_dirty = false;
 }
 
-void combat_clear(void) { have_last = false; nnumbers = 0; nparts = 0; for (int i = 0; i < SLOTS; i++) slots[i].bar_age = -1; }
+void combat_clear(void) {
+    have_last = false; nnumbers = 0; nparts = 0;
+    for (int i = 0; i < SLOTS; i++) { slots[i].bar_age = -1; slots[i].boss = false; }
+    boss.slot = -1; boss.fade = 0;
+}
 
 static void rumble(float low, float high, int ms) {
     if (!settings.rumble) return;
@@ -326,10 +341,10 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         /* Defeated: the update clears the health and then either clears the type or turns
          * the object into the defeat puff (type 1) in the same frame. Leaving the screen
          * clears the type but keeps the health, so it is not counted. */
-        bool defeated = have_last && s->type && s->type != 1 && s->hp && !hp && (!type || type == 1);
+        bool defeated = have_last && s->type && s->type != 1 && s->hp && s->hp < 0x8000 && !hp && (!type || type == 1);
         if (!defeated && (!have_last || type != s->type)) {
             /* A new object in this slot (or none): its health now is its full health. */
-            s->type = type; s->hp = s->max = hp; s->bar_age = -1; s->shown = 1; s->x = x; s->y = y;
+            s->type = type; s->hp = s->max = hp; s->bar_age = -1; s->shown = 1; s->x = x; s->y = y; s->boss = false;
             continue;
         }
         if (type) { s->x = x; s->y = y; }
@@ -339,7 +354,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
             Beast *b = beast_of(type, false);
             if (!b || !b->w) capture(f, i, type, (int)(x - cam_x), (int)(y - cam_y));
         }
-        if (hp < s->hp && world) {
+        if (hp < s->hp && s->hp < 0x8000 && world) {   /* health of $8000 or more: cannot be hurt */
             int d = s->hp - hp;
             if (combat_log) printf("hit: object %06X type %04X health %u -> %u (%d points)%s\n", 0xFF0000 + a, s->type, s->hp, hp, points(d), defeated ? ", defeated" : "");
             if (settings.combat_info) add_number(s, points(d), defeated && d >= s->max);
@@ -352,12 +367,31 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
                 if (defeated) rumble(.45f, .7f, 150); else rumble(.2f, .45f, 80);
             }
             s->bar_age = defeated ? -1 : 0;
+            if (s->max >= BOSS_HP && s->max < 0x8000) s->boss = true;
         } else if (s->bar_age >= 0 && ++s->bar_age > 150) s->bar_age = -1;
         float ratio = s->max ? (float)hp / s->max : 0;
         s->shown = s->shown > ratio ? fmaxf(ratio, s->shown - .012f) : ratio;
         s->hp = hp;
-        if (defeated) { s->type = type; s->max = 0; }   /* empty, or the puff */
+        if (defeated) { s->type = type; s->max = 0; s->boss = false; }   /* empty, or the puff */
     }
+    /* The boss bar follows the first boss in the list; when none is left it drains and fades. */
+    int b = -1;
+    for (int i = 0; i < SLOTS && b < 0; i++) if (slots[i].boss && slots[i].type && slots[i].hp) b = i;
+    if (combat_test_boss > 0 && --combat_test_boss == 0) test_boss_age = 0;
+    if (test_boss_age >= 0) {                   /* --test-boss: 32 points, 3 taken every 20 frames */
+        int hp = 0x200 - test_boss_age++ / 20 * 0x30;
+        if (hp > 0) { boss.slot = -1; boss.hp = (uint16_t)hp; boss.max = 0x200; if (boss.fade < 256) boss.fade += 16; }
+        else { boss.hp = 0; test_boss_age = -1; }
+    } else if (b >= 0) {
+        boss.slot = b; boss.hp = slots[b].hp; boss.max = slots[b].max;
+        if (boss.fade < 256) boss.fade += 16;
+    } else if (boss.fade > 0) {
+        if (boss.slot < 0 || !slots[boss.slot].boss) boss.hp = 0;    /* defeated, or gone */
+        boss.fade -= boss.hp ? 32 : 6;
+        if (boss.fade <= 0) { boss.fade = 0; boss.slot = -1; }
+    }
+    float ratio = boss.max ? (float)boss.hp / boss.max : 0;
+    boss.shown = boss.shown > ratio ? fmaxf(ratio, boss.shown - .006f) : ratio;
     uint16_t hp_now = peek16(0xFE62);
     if (have_last && live && play && hp_now < player_hp) {
         total.taken += player_hp - hp_now;
@@ -414,7 +448,7 @@ static float digits_width(const char *s, int u) {
 }
 
 bool combat_active(const HdPost *p) {
-    return p->world && (nparts ||settings.play_timer || (settings.combat_info && (nnumbers || settings.combat_info == 2)));
+    return p->world && (nparts ||settings.play_timer || (settings.combat_info && (nnumbers || settings.combat_info == 2 || boss.fade)));
 }
 
 /* Light added to a pixel: c x a/256 (a up to 256). */
@@ -504,6 +538,28 @@ static void draw_particles(uint32_t *px, int w, int h, const HdPost *p, float s)
     }
 }
 
+/* The boss bar: wide, at the bottom middle of the picture, with the boss's points. */
+static void draw_boss_bar(uint32_t *px, int w, int h, float s, int u) {
+    int a = boss.fade > 256 ? 256 : boss.fade;
+    float ratio = boss.max ? (float)boss.hp / boss.max : 0;
+    int bw = (int)(160 * s), bh = 4 * u, x = (w - bw) / 2, y = h - (int)(22 * s);
+    uint32_t c = ratio > .5f ? 0xE6463A : ratio > .25f ? 0xF08A30 : 0xF0C83C;
+    for (int yy = y - 2 * u; yy < y + bh + 2 * u; yy++)
+        for (int xx = x - 2 * u; xx < x + bw + 2 * u; xx++) {
+            bool inside = xx >= x && xx < x + bw && yy >= y && yy < y + bh;
+            bool rim = !inside && xx >= x - u && xx < x + bw + u && yy >= y - u && yy < y + bh + u;
+            uint32_t col = rim ? 0xC9A55A : 0x140C08;
+            if (inside) {
+                float f = (float)(xx - x) / bw;
+                col = f < ratio ? (yy < y + u ? 0xFF8A70 : c) : f < boss.shown ? 0xF4E6C8 : 0x3A2A22;
+            }
+            put(px, w, h, xx, yy, 1, col, inside || rim ? a * 15 / 16 : a * 3 / 4);
+        }
+    char text[16];
+    snprintf(text, sizeof text, "%d", boss.hp ? points(boss.hp) : 0);
+    draw_digits(px, w, h, text, x + bw - digits_width(text, u), y - 9 * u, u, 0xFFF1D0, a);
+}
+
 void combat_draw(uint32_t *px, int w, int h, const HdPost *p) {
     if (!p->world) return;
     int u = p->scale < 1 ? 1 : p->scale;
@@ -512,7 +568,7 @@ void combat_draw(uint32_t *px, int w, int h, const HdPost *p) {
     if (settings.combat_info == 2)
         for (int i = 0; i < SLOTS; i++) {
             const Slot *e = &slots[i];
-            if (e->bar_age < 0 || !e->max || !e->type) continue;
+            if (e->bar_age < 0 || !e->max || !e->type || e->boss) continue;
             int a = e->bar_age > 120 ? (150 - e->bar_age) * 256 / 30 : 256;
             float bw = 20;
             float x = (e->x - bw / 2 - p->cam_x + p->extra) * s, y = (e->y - 18 - p->cam_y) * s;
@@ -531,6 +587,7 @@ void combat_draw(uint32_t *px, int w, int h, const HdPost *p) {
                     put(px, w, h, xx, yy, 1, col, a * 7 / 8);
                 }
         }
+    if (settings.combat_info == 2 && boss.fade > 0) draw_boss_bar(px, w, h, s, u);
     if (settings.combat_info)
         for (int i = 0; i < nnumbers; i++) {
             const Number *n = &numbers[i];
