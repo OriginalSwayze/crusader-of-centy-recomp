@@ -24,6 +24,7 @@ typedef uint32_t (*RecompBlock)(uint32_t pc);
 typedef struct { uint32_t pc; RecompBlock fn; } RecompEntry;
 
 /* Patched instructions (config/patches.json). Their defaults keep the original behaviour. */
+extern int patch_health_over;           /* ngplus.c: the maximum health set past 64 ($0058A2): 32 original */
 extern int patch_damage;                /* percent of each hit the player takes: 100 original, 0 none */
 int scale_damage(int damage);           /* cheats.c: scaled, with the fraction carried to the next hit */
 /* A change to the player's health (16 bits, negative for a hit), as the difficulty has it. */

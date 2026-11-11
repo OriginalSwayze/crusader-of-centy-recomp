@@ -114,7 +114,8 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Bestiary with defeat counts | Done: Paused > Stats shows every enemy type defeated, its picture (its own sprites, kept while it is on screen) and how many (`bestiary.bin`); names would need the types matched to the manual |
 | Photo mode: pause, hide HUD, resolution, effects | Done: Paused > Photo mode or F9: the game freezes, H / Y hides the HUD (its sprites), Enter / A saves a PNG at the internal resolution with every effect to `screenshots/` |
 | Photo mode camera zoom / free camera | Hard: only what the game has loaded in video memory can be shown |
-| New Game+, Boss Rush, boss rematch, time attack, challenge modes | Hard: new game logic on top of the original; needs the save format and story flags mapped |
+| New Game+ | Done: Settings > Gameplay > New Game+ keeps max health and money (`runtime/src/ngplus.c`); a new game is set up at `$019188`; `$0058A2` (max health past 64 set to 32) patched to 64 once used. Animals are not carried: the scenes where they join check whether they already have |
+| Boss Rush, boss rematch, time attack, challenge modes | Hard: needs the boss rooms and how to enter them mapped |
 | Steam achievements | Out: needs a Steam release and app ID, which a build from your own ROM cannot have; local achievements (a menu page) are possible after Map |
 | Remastered soundtrack, new arrangements, spatial audio | Out for the project itself (no new music can ship with it); a hook for user-supplied music packs is possible later |
 | AI-generated art | Out by design: the original pixel art stays |
@@ -123,4 +124,4 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 
 1. Story flags: 102 named (Paused > Journal); the rest are items picked up (`$030B22`), script commands with no line (`$030AC6`), first visits (the table at `$38B8`) and code. Naming them needs the areas named too.
 2. Vegetation swaying: needs each area's plant tiles listed (tree tops share plane B with the lawns).
-3. The larger modes (New Game+, Boss Rush).
+3. Boss Rush (needs the boss rooms mapped).

@@ -257,6 +257,12 @@
           [
             "D(3) = addl(player_step(D(1)), D(3));"
           ]
+        ],
+        "005AB6": [
+          "move.w\t#$20,($FFFFFE60).w",
+          [
+            "wr16(0xFFFE60, (uint32_t)patch_health_over & 0xFFFFu);"
+          ]
         ]
       },
       "notes": {
@@ -523,6 +529,12 @@
           "add.l\td1,d3",
           [
             "D(3) = addl(player_step(D(1)), D(3));"
+          ]
+        ],
+        "005A80": [
+          "move.w\t#$20,($FFFFFE60).w",
+          [
+            "wr16(0xFFFE60, (uint32_t)patch_health_over & 0xFFFFu);"
           ]
         ]
       },

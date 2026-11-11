@@ -264,6 +264,12 @@
       [
         "D(3) = addl(player_step(D(1)), D(3));"
       ]
+    ],
+    "0058A2": [
+      "move.w\t#$20,($FFFFFE60).w",
+      [
+        "wr16(0xFFFE60, (uint32_t)patch_health_over & 0xFFFFu);"
+      ]
     ]
   },
   "notes": {

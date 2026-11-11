@@ -12,6 +12,7 @@
 #include "combat.h"
 #include "automap.h"
 #include "story.h"
+#include "ngplus.h"
 #include "genesis.h"
 #include "game.h"
 #include "savestate.h"
@@ -24,7 +25,7 @@
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION, ITEM_PAGE } ItemKind;
 enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED,
-       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO, ACT_AUTOLOAD, ACT_JOURNAL };
+       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO, ACT_AUTOLOAD, ACT_JOURNAL, ACT_NGPLUS };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 /* ---- The pages --------------------------------------------------------------------------- */
@@ -56,11 +57,11 @@ static const Page pages[PAGES] = {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
         { ITEM_OPTION, "Water", OPT_WATER },
         { ITEM_OPTION, "Texture pack", OPT_TEXPACK } } },
-    [PAGE_GAMEPLAY] = { "Gameplay", 10, {
+    [PAGE_GAMEPLAY] = { "Gameplay", 11, {
         { ITEM_OPTION, "Difficulty", OPT_DIFFICULTY }, { ITEM_OPTION, "Infinite health", OPT_CHEAT_HEALTH }, { ITEM_OPTION, "Walking speed", OPT_WALK },
         { ITEM_OPTION, "Combat info", OPT_COMBAT }, { ITEM_OPTION, "Rumble", OPT_RUMBLE }, { ITEM_OPTION, "Play timer", OPT_TIMER },
         { ITEM_OPTION, "Autosave", OPT_AUTOSAVE }, { ITEM_OPTION, "Fast-forward", OPT_FAST }, { ITEM_OPTION, "Rewind", OPT_REWIND_ALL },
-        { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK } } },
+        { ITEM_OPTION, "Slowdown fix", OPT_OVERCLOCK }, { ITEM_ACTION, "New Game+", ACT_NGPLUS } } },
     [PAGE_SOUND] = { "Sound", 2, { { ITEM_OPTION, "Volume", OPT_VOLUME }, { ITEM_OPTION, "Audio", OPT_AUDIO } } },
     [PAGE_GENERAL] = { "General", 2, {
         { ITEM_OPTION, "Language", OPT_LANGUAGE }, { ITEM_OPTION, "Launcher at startup", OPT_LAUNCHER } } },
@@ -83,6 +84,7 @@ static const char *about(const Item *it) {
         case ACT_AUTOLOAD: return "Goes back to the last autosave, made each time the story moves on (Gameplay > Autosave).";
         case ACT_PHOTO: return "Freezes the game for a picture: hide the HUD, then save it at the internal resolution with every effect. F9 in play.";
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
+        case ACT_NGPLUS: return "Starts the story over keeping Corona's maximum health and money: after the title, pick an empty file and name it. Animals join again as the story goes. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
@@ -515,15 +517,19 @@ static MenuAction act(int dir, bool activate) {
             sound(1);
             return MENU_SETTINGS;
         }
-        /* Reset and quit lose progress: ask for a second press. */
+        /* Reset, New Game+ and quit lose progress: ask for a second press. */
         if (!confirm_pending || confirm_item != selected) {
             confirm_pending = true;
             confirm_item = selected;
-            notify(it->id == ACT_RESET ? "Press again to reset the game" : "Press again to quit");
+            notify(it->id == ACT_RESET ? "Press again to reset the game" : it->id == ACT_NGPLUS ? "Press again to start New Game+" : "Press again to quit");
             sound(3);
             return MENU_NONE;
         }
         confirm_pending = false;
+        if (it->id == ACT_NGPLUS) {
+            if (!ngplus_start()) { notify("Load your game first: New Game+ keeps what it has"); sound(3); return MENU_NONE; }
+            return MENU_RESET;
+        }
         return it->id == ACT_RESET ? MENU_RESET : MENU_QUIT;
     }
     return MENU_NONE;
@@ -909,7 +915,7 @@ static void draw_row(int i, float dx, float alpha) {
     const Item *it = &cur()->items[i];
     float y = row_y(i), h = row_h();
     bool focus = selected == i, big = big_rows();
-    bool danger = it->kind == ITEM_ACTION && (it->id == ACT_RESET || it->id == ACT_QUIT);
+    bool danger = it->kind == ITEM_ACTION && (it->id == ACT_RESET || it->id == ACT_QUIT || it->id == ACT_NGPLUS);
     float px = big ? 25 : 18;
     Rgb lc = focus ? (danger && confirm_pending ? C_RED : C_TEXT) : C_DIM;
     float ty = y + (h - px * 1.33f) / 2;
