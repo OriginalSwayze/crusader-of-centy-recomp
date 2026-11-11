@@ -721,6 +721,7 @@ int main(int argc, char **argv) {
     int menu_w = 1920, menu_h = 1080;
     bool controls_shot = false;
     int menu_tab = -1, menu_row = 0;    /* --menu-tab TAB ROW, with --menu-shot */
+    int map_step = 0;                   /* --map-step N: the map shows the Nth area on from this one */
     bool save_preview = false;          /* --save-preview: keep the last frame for the launcher's previews */
     int save_to = 0;
     int load_from = 0;
@@ -867,6 +868,7 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--save-preview")) save_preview = true;
         else if (!strcmp(argv[i], "--menu-tab") && i + 2 < argc) { menu_tab = atoi(argv[++i]); menu_row = atoi(argv[++i]); }
+        else if (!strcmp(argv[i], "--map-step") && i + 1 < argc) map_step = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--input-check") && i + 1 < argc) {
             /* --input-check FILE: rebind a few keys and buttons, save to FILE, load it back,
              * and print the bindings (never touches settings.ini). */
@@ -1182,6 +1184,7 @@ int main(int argc, char **argv) {
                 HdPost here = finishing(1, 0);
                 preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);
                 menu_select(menu_tab, menu_row);
+                for (int k = 0; k < abs(map_step); k++) automap_view_step(map_step < 0 ? -1 : 1);
             }
             menu_render(1.0);
             png_write(menu_shot, ui_px, ui_w, ui_h, ui_w);

@@ -85,7 +85,7 @@ static const char *about(const Item *it) {
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
-        case ACT_MAP: return "Fills in as you explore: everything that has been on screen on this map, with your place blinking.";
+        case ACT_MAP: return "Fills in as you explore, with your place blinking. Doors you have been through are marked with the area they lead to; \xE2\x86\x90 \xE2\x86\x92 look at the other areas.";
         case ACT_PRESET_ORIGINAL: return "Everything as the cartridge was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound and saves stay as they are.";
         case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
         case ACT_ROM: return "Pick a ROM of Crusader of Centy (USA), or Ragnacenty from Japan or Korea. ROMs in the rom folder next to the game are found by themselves.";
@@ -367,6 +367,7 @@ void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x,
                int out_w, int out_h, float window_to_pixels) {
     if (launcher) open_ = false;
     launcher = false;
+    automap_view_reset();
     open_common(fb, fb_w, fb_h, fb_pitch, game_x, game_y, game_w, game_h, out_w, out_h, window_to_pixels);
 }
 
@@ -590,7 +591,10 @@ MenuAction menu_event(const SDL_Event *e) {
         return MENU_NONE;
     }
     if (!dir && !activate) return MENU_NONE;
-    if (dir && item_at(selected) && item_at(selected)->kind == ITEM_ACTION) return MENU_NONE;
+    if (dir && item_at(selected) && item_at(selected)->kind == ITEM_ACTION) {
+        if (item_at(selected)->id == ACT_MAP) { automap_view_step(dir); sound(0); }
+        return MENU_NONE;
+    }
     return act(dir, activate);
 }
 
@@ -693,13 +697,22 @@ static void draw_side(float t, float alpha) {
             ui_draw_text(none, FONT, 16, 400, 0, PIC_X + (PIC_W - w) / 2, PIC_Y + PIC_H / 2 - 10, C_DIM, C_DIM, alpha);
         }
         outline(PIC_X, PIC_Y, PIC_W, PIC_H, C_LINE, alpha);
-        int pc, seen;
-        automap_progress(&pc, &seen);
-        char line[96];
-        if (pc >= 0) snprintf(line, sizeof line, "%d%% of this area explored  \xC2\xB7  %d area%s visited", pc, seen, seen == 1 ? "" : "s");
-        else snprintf(line, sizeof line, "%d area%s visited", seen, seen == 1 ? "" : "s");
+        AutomapInfo mi;
+        automap_info(&mi);
+        char line[128], sub[128];
+        snprintf(line, sizeof line, "Area %d%s", mi.map, mi.current ? "  \xC2\xB7  you are here" : "");
         ui_draw_text(line, FONT_SB, 16, 600, 0, PIC_X, TEXT_Y, C_TEXT, C_TEXT, alpha);
-        draw_wrapped(about(it), PIC_X, TEXT_Y + 28, PIC_W, 15.5f, C_DIM, alpha);
+        if (mi.areas > 1) {
+            snprintf(sub, sizeof sub, "\xE2\x86\x90 %d of %d \xE2\x86\x92", mi.index, mi.areas);
+            float sw = ui_text_width(sub, FONT, 15, 400, 0);
+            ui_draw_text(sub, FONT, 15, 400, 0, PIC_X + PIC_W - sw, TEXT_Y + 1, C_DIM, C_DIM, alpha);
+        }
+        int n = 0;
+        if (mi.percent >= 0) n += snprintf(sub + n, sizeof sub - n, "%d%% explored", mi.percent);
+        if (mi.doors) n += snprintf(sub + n, sizeof sub - n, "%s%d door%s found", n ? "  \xC2\xB7  " : "", mi.doors, mi.doors == 1 ? "" : "s");
+        if (!n) snprintf(sub, sizeof sub, "Not fully known yet");
+        ui_draw_text(sub, FONT, 15, 400, 0, PIC_X, TEXT_Y + 25, C_DIM, C_DIM, alpha);
+        draw_wrapped(about(it), PIC_X, TEXT_Y + 52, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_STATS) {

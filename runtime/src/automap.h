@@ -15,12 +15,21 @@ void automap_frame(const HdFrame *f, bool world, float cam_x, float cam_y);
 void automap_load(const char *base_dir);
 void automap_save(const char *base_dir);
 
-/* Draws the current area's map into the ui canvas, fitted into (x, y, w, h) layout units,
- * with the player's place blinking. False when nothing of this area has been seen. */
+/* The area shown: the current one when the menu opens (automap_view_reset); automap_view_step
+ * goes through the others seen, in the order they were first visited. */
+void automap_view_reset(void);
+void automap_view_step(int dir);
+
+/* Draws the shown area's map into the ui canvas, fitted into (x, y, w, h) layout units, with
+ * its doors (each place the player left it for another area, a marker labelled with where
+ * it leads) and, on the current area, the player's place blinking. False when nothing of
+ * the area has been seen. */
 bool automap_draw(float x, float y, float w, float h, float t, float alpha);
 
-/* How much of the current area has been seen (0-100, -1 when its size is not known yet)
- * and how many areas have been visited. */
-void automap_progress(int *percent, int *areas_seen);
+/* About the shown area: its map number, its place among the areas seen (1-based) and how many
+ * those are, how much of it has been seen (0-100, -1 when its size is not known yet), its
+ * doors found, and whether it is the one the player is in. */
+typedef struct { int map, index, areas, percent, doors; bool current; } AutomapInfo;
+void automap_info(AutomapInfo *out);
 
 #endif
