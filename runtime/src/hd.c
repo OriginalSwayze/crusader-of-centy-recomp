@@ -414,6 +414,65 @@ static void run_bands_of(void (*rows)(void *ctx, int y0, int y1), void *ctx, int
 
 static void run_bands(void (*rows)(void *ctx, int y0, int y1), void *ctx, int h) { run_bands_of(rows, ctx, h, 8); }
 
+/* ---- Dither blend ------------------------------------------------------------------------ *
+ * The finished picture with its checkerboards averaged, as a CRT's blur showed them: the
+ * see-through tree shadows drawn as a checkerboard over the ground become an even shade. Only
+ * true checkerboards (one game pixel = s picture pixels) are touched, so lines of text and
+ * one-pixel strokes stay sharp:
+ *   - the four diagonal neighbours match the pixel and the four beside it do not (the shadow's
+ *     own pixels, over ground that may vary): it takes half the average of those four;
+ *   - the four beside it match each other but not it (the ground seen through): it takes half
+ *     of theirs.
+ * Tested on the picture, not the layers: the checkerboard is one layer over another. The HUD
+ * (its sprites, listed in the frame) is left as it is. */
+bool hd_dither_blend;
+typedef struct { const uint32_t *src; uint32_t *dst; int w, h, s; } BlendJob;
+
+static inline uint32_t avg2(uint32_t a, uint32_t b) { return (a & b) + (((a ^ b) & 0xFEFEFEu) >> 1); }
+
+static void blend_rows(void *ctx, int y0, int y1) {
+    const BlendJob *j = ctx;
+    int w = j->w, h = j->h, s = j->s;
+    ptrdiff_t up = (ptrdiff_t)s * w;
+    for (int y = y0; y < y1; y++) {
+        const uint32_t *row = j->src + (size_t)y * w;
+        uint32_t *out = j->dst + (size_t)y * w;
+        if (y < s || y + s >= h) { memcpy(out, row, (size_t)w * 4); continue; }
+        for (int x = 0; x < w; x++) {
+            uint32_t E = row[x];
+            out[x] = E;
+            if (x < s || x + s >= w) continue;
+            uint32_t L = row[x - s], R = row[x + s], U = row[x - up], D = row[x + up];
+            if (L == E || R == E || U == E || D == E) continue;
+            if (L == R && U == D && L == U) { out[x] = avg2(E, L); continue; }
+            if (row[x - up - s] == E && row[x - up + s] == E && row[x + up - s] == E && row[x + up + s] == E)
+                out[x] = avg2(E, avg2(avg2(L, R), avg2(U, D)));
+        }
+    }
+}
+
+static void blend_dither(int scale) {
+    static uint32_t *other;
+    static size_t cap;
+    size_t need = (size_t)hd_w * hd_h;
+    if (need > cap) { free(other); other = malloc(need * 4); cap = other ? need : 0; }
+    if (!other) return;
+    BlendJob j = { hd_px, other, hd_w, hd_h, scale };
+    run_bands(blend_rows, &j, hd_h);
+    /* The HUD as it was: high-priority sprites of the first 256 tiles in the top 48 lines. */
+    for (int i = 0; i < 80; i++) {
+        const HdSprite *c = &hd_frame.sprites[i];
+        if (!c->drawn || !(c->attr & 0x8000) || (c->attr & 0x7FF) >= 0x100 || c->y + c->h > 48) continue;
+        int x0 = (c->x + hd_frame.extra) * scale, y0 = c->y * scale, x1 = x0 + c->w * scale, y1 = y0 + c->h * scale;
+        if (x0 < 0) x0 = 0;
+        if (y0 < 0) y0 = 0;
+        if (x1 > hd_w) x1 = hd_w;
+        if (y1 > hd_h) y1 = hd_h;
+        for (int y = y0; y < y1 && x1 > x0; y++) memcpy(other + (size_t)y * hd_w + x0, hd_px + (size_t)y * hd_w + x0, (size_t)(x1 - x0) * 4);
+    }
+    memcpy(hd_px, other, need * 4);
+}
+
 void hd_rows(void (*rows)(void *ctx, int y0, int y1), void *ctx, int h) { run_bands(rows, ctx, h); }
 
 static int workers(void) {
@@ -1353,6 +1412,7 @@ void hd_compose(int scale) {
     hd_ms[0] = ms_since(&t0);
     hd_ms[1] = hd_ms[2] = 0;
     compose_rows(scale, scaled[2], NULL, NULL, NULL, NULL);
+    if (hd_dither_blend) blend_dither(scale);
     hd_ms[3] = ms_since(&t0);
 }
 
@@ -1459,6 +1519,7 @@ static void compose_between(int scale, float tp, float ts) {
     }
     ms_since(&t0);
     compose_rows(scale, layer, ox[0], oy[0], ox[1], oy[1]);
+    if (hd_dither_blend) blend_dither(scale);
     hd_ms[3] = ms_since(&t0);
 }
 

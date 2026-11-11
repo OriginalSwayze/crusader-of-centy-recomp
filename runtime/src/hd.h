@@ -80,6 +80,7 @@ extern int hd_scaler;
 
 /* A texture pack is loaded: replaced tiles are drawn from their images (texpack.h). */
 extern bool hd_texpack;
+extern bool hd_dither_blend;            /* blend dither into the colour it stands for (settings.dither_blend) */
 extern float hd_time;                   /* seconds, for animations drawn with the layers */
 /* Water shimmers, foams, glints and reflects the sprites above it (while compositing). */
 extern bool hd_water;

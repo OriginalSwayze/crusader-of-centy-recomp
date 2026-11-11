@@ -47,11 +47,11 @@ static const Page pages[PAGES] = {
         { ITEM_PAGE, "Display", PAGE_DISPLAY }, { ITEM_PAGE, "Effects", PAGE_EFFECTS }, { ITEM_PAGE, "Gameplay", PAGE_GAMEPLAY },
         { ITEM_PAGE, "Sound", PAGE_SOUND }, { ITEM_ACTION, "Controls", ACT_CONTROLS }, { ITEM_PAGE, "General", PAGE_GENERAL },
         { ITEM_ACTION, "Original experience", ACT_PRESET_ORIGINAL }, { ITEM_ACTION, "Enhanced experience", ACT_PRESET_ENHANCED } } },
-    [PAGE_DISPLAY] = { "Display", 9, {
+    [PAGE_DISPLAY] = { "Display", 10, {
         { ITEM_OPTION, "Widescreen", OPT_WIDESCREEN }, { ITEM_OPTION, "Window", OPT_WINDOW_ALL }, { ITEM_OPTION, "Integer scaling", OPT_INTEGER },
         { ITEM_OPTION, "Internal resolution", OPT_INTERNAL }, { ITEM_OPTION, "Scaler", OPT_SCALER },
         { ITEM_OPTION, "Filter", OPT_FILTER }, { ITEM_OPTION, "Sharpening", OPT_SHARPEN },
-        { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER }, { ITEM_OPTION, "Smooth motion", OPT_SMOOTH } } },
+        { ITEM_OPTION, "Sprite flicker fix", OPT_FLICKER }, { ITEM_OPTION, "Blend dither", OPT_DITHER }, { ITEM_OPTION, "Smooth motion", OPT_SMOOTH } } },
     [PAGE_EFFECTS] = { "Effects", 5, {
         { ITEM_OPTION, "Lighting", OPT_LIGHTING }, { ITEM_OPTION, "HDR look", OPT_HDR }, { ITEM_OPTION, "Hit effects", OPT_PARTICLES },
         { ITEM_OPTION, "Water", OPT_WATER },
@@ -89,7 +89,7 @@ static const char *about(const Item *it) {
         case ACT_JOURNAL: return "The story so far: each event as the game's own line that marks it, newest first.";
         case ACT_MAP: return "Fills in as you explore, with your place blinking. Doors you have been through are marked with the area they lead to; \xE2\x86\x90 \xE2\x86\x92 look at the other areas.";
         case ACT_PRESET_ORIGINAL: return "Everything as the cartridge was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound and saves stay as they are.";
-        case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
+        case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, blended dither, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
         case ACT_ROM: return "Pick a ROM of Crusader of Centy (USA), or Ragnacenty from Japan or Korea. ROMs in the rom folder next to the game are found by themselves.";
         case ACT_PLAY: return NULL;
         case ACT_CONTINUE: return NULL;
@@ -103,6 +103,7 @@ static const char *about(const Item *it) {
     case OPT_SCALER: return "Edge rounds corners, Smooth (xBR) follows curves and slopes, Sharp keeps every pixel square, exactly as drawn.";
     case OPT_FILTER: return "Scanlines, a curved CRT tube or an LCD grid over the picture.";
     case OPT_SHARPEN: return "Crisper edges after scaling, without halos.";
+    case OPT_DITHER: return "The game shades with checkerboards that a CRT blurred together: tree shadows and haze. This shows them as the even, see-through shade they stand for.";
     case OPT_SMOOTH: return "For screens faster than 60 Hz: the scenery and every character are drawn part of the way between the game's moves, so motion is fluid. No change at 60 Hz.";
     case OPT_FLICKER: return "Lifts the hardware's limit of sprites on one line, so crowded scenes no longer flicker.";
     case OPT_LIGHTING: return "Bright spots glow softly into their surroundings.";

@@ -72,6 +72,7 @@ void settings_load(const char *path) {
         else if (!strcmp(k, "sharpen")) settings.sharpen = atoi(v);
         else if (!strcmp(k, "no_sprite_limit")) settings.no_sprite_limit = parse_bool(v);
         else if (!strcmp(k, "smooth_motion")) settings.smooth_motion = parse_bool(v);
+        else if (!strcmp(k, "dither_blend")) settings.dither_blend = parse_bool(v);
         else if (!strcmp(k, "lighting")) settings.lighting = atoi(v);
         else if (!strcmp(k, "hdr_look")) settings.hdr = atoi(v);
         else if (!strcmp(k, "hit_effects")) settings.particles = atoi(v);
@@ -172,6 +173,7 @@ void settings_save(const char *path) {
     fprintf(f, "sharpen=%d\n", settings.sharpen);
     fprintf(f, "no_sprite_limit=%d\n", settings.no_sprite_limit);
     fprintf(f, "smooth_motion=%d\n", settings.smooth_motion);
+    fprintf(f, "dither_blend=%d\n", settings.dither_blend);
     fprintf(f, "\n# Effects\n");
     fprintf(f, "lighting=%d\n", settings.lighting);
     fprintf(f, "hdr_look=%d\n", settings.hdr);
@@ -232,6 +234,7 @@ void settings_option_text(int id, char *out, size_t n) {
     case OPT_SHARPEN:    snprintf(out, n, "%s", sharpen_names[settings.sharpen]); break;
     case OPT_FLICKER:    snprintf(out, n, "%s", on_off(settings.no_sprite_limit)); break;
     case OPT_SMOOTH:     snprintf(out, n, "%s", on_off(settings.smooth_motion)); break;
+    case OPT_DITHER:     snprintf(out, n, "%s", on_off(settings.dither_blend)); break;
     case OPT_LIGHTING:   snprintf(out, n, "%s", settings.lighting == 2 ? "Bright" : settings.lighting ? "Soft" : "Off"); break;
     case OPT_HDR:        snprintf(out, n, "%s", settings.hdr == 2 ? "Strong" : settings.hdr ? "On" : "Off"); break;
     case OPT_PARTICLES:  snprintf(out, n, "%s", settings.particles == 2 ? "Lots" : settings.particles ? "On" : "Off"); break;
@@ -284,7 +287,7 @@ int settings_cycle(int v, int count, int dir) { return ((v + dir) % count + coun
 
 bool settings_option_is_switch(int id) {
     switch (id) {
-    case OPT_INTEGER: case OPT_FLICKER: case OPT_SMOOTH: case OPT_WATER: case OPT_DUMP: case OPT_CHEAT_HEALTH: case OPT_TIMER: case OPT_AUTOSAVE:
+    case OPT_INTEGER: case OPT_FLICKER: case OPT_SMOOTH: case OPT_DITHER: case OPT_WATER: case OPT_DUMP: case OPT_CHEAT_HEALTH: case OPT_TIMER: case OPT_AUTOSAVE:
     case OPT_LAUNCHER: case OPT_PERF_STATS: case OPT_AUTO_QUALITY: case OPT_GPU: case OPT_MERGED: case OPT_AVX2:
         return true;
     default:
@@ -316,6 +319,7 @@ void settings_option_change(int id, int dir) {
     case OPT_SHARPEN:    settings.sharpen = settings_cycle(settings.sharpen, 4, dir); break;
     case OPT_FLICKER:    settings.no_sprite_limit = !settings.no_sprite_limit; break;
     case OPT_SMOOTH:     settings.smooth_motion = !settings.smooth_motion; break;
+    case OPT_DITHER:     settings.dither_blend = !settings.dither_blend; break;
     case OPT_LIGHTING:   settings.lighting = settings_cycle(settings.lighting, 3, dir); break;
     case OPT_HDR:        settings.hdr = settings_cycle(settings.hdr, 3, dir); break;
     case OPT_PARTICLES:  settings.particles = settings_cycle(settings.particles, 3, dir); break;
@@ -397,6 +401,7 @@ void settings_preset_original(void) {
     settings.water = false;
     settings.no_sprite_limit = false;
     settings.smooth_motion = false;
+    settings.dither_blend = false;
     settings.overclock = 100;
     settings.integer_scale = false;
     settings.difficulty = 0;
@@ -417,5 +422,6 @@ void settings_preset_enhanced(void) {
     settings.particles = 1;
     settings.water = true;
     settings.no_sprite_limit = true;
+    settings.dither_blend = true;
     settings.overclock = 200;
 }

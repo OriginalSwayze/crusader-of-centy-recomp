@@ -174,6 +174,7 @@ static bool switch_version(void) {
 static void apply_settings(void) {
     widescreen_set(settings_extra_width());
     vdp_opts.no_sprite_limit = settings.no_sprite_limit;
+    hd_dither_blend = settings.dither_blend;
     vdp_opts.hd_capture = true;         /* the layers are also what the menu's previews draw from */
     machine_opts.overclock = settings.overclock;
     cpu_has_avx2 = SDL_HasAVX2();
@@ -686,7 +687,7 @@ static bool photo_save(int iscale, char *out, size_t n) {
     struct tm *tm = localtime(&t);
     snprintf(out, n, "%s" PATH_SEP "Centy %04d-%02d-%02d %02d.%02d.%02d.png", dir, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
              tm->tm_hour, tm->tm_min, tm->tm_sec);
-    bool hd = (iscale > 1 || settings.water || hd_texpack) && hd_frame.h == vdp_screen_height();
+    bool hd = (iscale > 1 || settings.water || hd_texpack || settings.dither_blend) && hd_frame.h == vdp_screen_height();
     if (hd) {
         hd_compose(iscale);
         HdPost post = finishing(hd_w / frame_width(), hd_time);
@@ -791,6 +792,7 @@ int main(int argc, char **argv) {
             settings.internal_scale = atoi(argv[++i]);
             settings.smooth_motion = true;
         }
+        else if (!strcmp(argv[i], "--dither-blend") && i + 1 < argc) settings.dither_blend = hd_dither_blend = atoi(argv[++i]) != 0;   /* tests: 0 or 1 */
         else if (!strcmp(argv[i], "--test-boss") && i + 1 < argc) { extern int combat_test_boss; combat_test_boss = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--particles") && i + 1 < argc) { settings.particles = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--hdr") && i + 1 < argc) { settings.hdr = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
@@ -1130,7 +1132,7 @@ int main(int argc, char **argv) {
             uint32_t *pixels = malloc((size_t)filter_w * filter_h * 4);
             if (target && pixels) {
                 SDL_SetRenderTarget(sr, target);
-                bool hd = settings.internal_scale > 1 || settings.water || hd_texpack;   /* as the window draws it */
+                bool hd = settings.internal_scale > 1 || settings.water || hd_texpack || settings.dither_blend;   /* as the window draws it */
                 hd_time = 1.0f;
                 if (hd) hd_compose(settings.internal_scale);
                 int tw = hd ? hd_w : frame_width(), th = hd ? hd_h : vdp_screen_height();
@@ -1506,7 +1508,7 @@ int main(int argc, char **argv) {
         /* Smooth motion only above 60 Hz: at 60 every refresh has a game frame of its own. */
         SDL_DisplayMode dm;
         bool smooth = settings.smooth_motion && SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(win), &dm) == 0 && dm.refresh_rate > 70;
-        bool hd = (iscale > 1 || smooth || settings.water || hd_texpack) &&
+        bool hd = (iscale > 1 || smooth || settings.water || hd_texpack || settings.dither_blend) &&
                   hd_frame.h == vdp_screen_height();
         hd_time = (float)(SDL_GetPerformanceCounter() - start) / freq;
         Uint64 t_start = SDL_GetPerformanceCounter(), t_layers = t_start, t_effects = t_start, t_upload = t_start;

@@ -70,7 +70,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Falling leaves, fireflies, rain, snow | Removed: they were a Beyond Oasis-style overlay, not part of this game's look; may come back per area once areas are mapped |
 | Grass, flowers and trees swaying; dust | Build: needs the plants found in the scenery |
 | Fog, wind, weather by area | Build: needs the areas mapped (the map number is, `$FFFE76`) |
-| Soft shadows under characters, ambient occlusion | Build + Map: needs which sprites are characters (the object list) |
+| Soft shadows under characters, ambient occlusion | Not needed: the characters' sprites carry their own shadow. The scenery's shadows (trees) are checkerboard dither: Settings > Display > Blend dither shows them as an even, see-through shade (`hd.c`) |
 | Particles: sword sparks, enemy defeat, impacts, debris | Done: Effects > Hit effects: sparks from every hit; a flash, ring, embers and leaves from every defeat |
 | Configurable particle density, shadow intensity | Density done (Hit effects: On or Lots); shadows not started |
 
@@ -120,5 +120,5 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 ## Next steps, in order
 
 1. Story flags: 102 named (Paused > Journal); the rest are items picked up (`$030B22`), script commands with no line (`$030AC6`), first visits (the table at `$38B8`) and code. Naming them needs the areas named too.
-2. World effects that need the camera: vegetation, shadows.
+2. Vegetation swaying: needs the plants found in the scenery (their tiles per area).
 3. Companion pages, then the larger modes (New Game+, Boss Rush).
