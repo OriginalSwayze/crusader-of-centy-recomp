@@ -33,6 +33,7 @@ interpreter. It shares its recompiler and runtime with
 | Combat info (damage numbers, enemy health bars), rumble, play timer, stats | done (`runtime/src/combat.c`); numbers and bars not yet seen in a real fight |
 | Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
 | Water: streams that swell, foam at the shore and reflect what stands in them (Settings > Effects) | done (`runtime/src/hd.c`): picture only, the game is untouched |
+| Journal (Paused > Journal): the story events done so far, newest first, each named by the game's own line that marks it, read from your cartridge (USA) when it loads; the order met is kept in `journal.bin` | done (`runtime/src/story.c`) |
 | Auto-map (Paused > Map): each area fills in as you explore, with the doors you have used marked with the area they lead to; left / right look at every area visited; saved in `automap.bin` | done (`runtime/src/automap.c`) |
 | Launcher and pause menu (`runtime/src/menu.c`): professional, in the colours of the game's title art and fields (sand, peach, moss, forest green); the launcher shows the real title logo cut from your ROM's title screen, Continue (the newest save state) and New game; Settings in pages (Display, Effects, Gameplay, Sound, Controls, General) with only player-facing options | done |
 | Sound levels: the mix brought down to about -19 dBFS with no clipping (it clipped at the Beyond Oasis gain); the volume setting follows the ear (squared: 50% is about -12 dB, 10% about -40 dB) | done |

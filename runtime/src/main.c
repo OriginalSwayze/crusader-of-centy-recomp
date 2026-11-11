@@ -19,6 +19,7 @@
 #include "menu.h"
 #include "combat.h"
 #include "automap.h"
+#include "story.h"
 #include "savestate.h"
 #include "ui.h"
 #include "text.h"
@@ -390,7 +391,10 @@ static void story_watch(void) {
     if (story_have) {
         int gained = 0;
         for (int i = 0; i < STORY_BYTES; i++)
-            for (uint8_t b = (uint8_t)(f[i] & ~story_seen[i]); b; b &= (uint8_t)(b - 1)) gained++;
+            for (uint8_t b = (uint8_t)(f[i] & ~story_seen[i]); b; b &= (uint8_t)(b - 1)) {
+                gained++;
+                for (int bit = 0; bit < 8; bit++) if (b & ~(b - 1) & (1 << bit)) story_gained(i * 8 + bit);
+            }
         if (gained > 0 && gained <= 6 && settings.autosave) autosave_in = 120;
     }
     memcpy(story_seen, f, STORY_BYTES);
@@ -1264,6 +1268,7 @@ int main(int argc, char **argv) {
     if (window_test && load_from && !savestate_load(load_from)) fprintf(stderr, "could not load slot %d\n", load_from);
     combat_stats_load(base_dir);
     automap_load(base_dir);
+    story_load(base_dir);
     while (running) {
         SDL_Event e;
         int ww, wh;
@@ -1583,6 +1588,7 @@ int main(int argc, char **argv) {
     save_sram();
     combat_stats_save(base_dir);
     automap_save(base_dir);
+    story_save(base_dir);
     if (!menu_is_open()) {
         HdPost here = finishing(1, 0);
         preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);

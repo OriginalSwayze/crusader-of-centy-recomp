@@ -11,6 +11,7 @@
 #include "preview.h"
 #include "combat.h"
 #include "automap.h"
+#include "story.h"
 #include "genesis.h"
 #include "game.h"
 #include "savestate.h"
@@ -23,18 +24,18 @@
 
 typedef enum { ITEM_ACTION, ITEM_SLOT, ITEM_OPTION, ITEM_PAGE } ItemKind;
 enum { ACT_RESUME, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_QUIT, ACT_CONTROLS, ACT_PRESET_ORIGINAL, ACT_PRESET_ENHANCED,
-       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO, ACT_AUTOLOAD };
+       ACT_STATS, ACT_MAP, ACT_PLAY, ACT_ROM, ACT_EXIT, ACT_CONTINUE, ACT_PHOTO, ACT_AUTOLOAD, ACT_JOURNAL };
 typedef struct { ItemKind kind; const char *label; int id; } Item;
 
 /* ---- The pages --------------------------------------------------------------------------- */
 enum { PAGE_HOME, PAGE_SETTINGS, PAGE_DISPLAY, PAGE_EFFECTS, PAGE_GAMEPLAY, PAGE_SOUND, PAGE_GENERAL, PAGES };
-#define MAX_ROWS 10
+#define MAX_ROWS 11
 typedef struct { const char *title; int count; Item items[MAX_ROWS]; } Page;
 
-static const Page home_pause = { "Paused", 10, {
+static const Page home_pause = { "Paused", 11, {
     { ITEM_ACTION, "Resume", ACT_RESUME }, { ITEM_SLOT, "Save state", ACT_SAVE }, { ITEM_SLOT, "Load state", ACT_LOAD },
     { ITEM_ACTION, "Load autosave", ACT_AUTOLOAD },
-    { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Photo mode", ACT_PHOTO }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
+    { ITEM_ACTION, "Map", ACT_MAP }, { ITEM_ACTION, "Journal", ACT_JOURNAL }, { ITEM_ACTION, "Photo mode", ACT_PHOTO }, { ITEM_ACTION, "Stats", ACT_STATS }, { ITEM_PAGE, "Settings", PAGE_SETTINGS },
     { ITEM_ACTION, "Reset game", ACT_RESET }, { ITEM_ACTION, "Quit game", ACT_QUIT } } };
 /* The launcher's home: Continue appears when there is a save state to continue from. */
 static const Item launcher_items[] = {
@@ -85,6 +86,7 @@ static const char *about(const Item *it) {
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";
+        case ACT_JOURNAL: return "The story so far: each event as the game's own line that marks it, newest first.";
         case ACT_MAP: return "Fills in as you explore, with your place blinking. Doors you have been through are marked with the area they lead to; \xE2\x86\x90 \xE2\x86\x92 look at the other areas.";
         case ACT_PRESET_ORIGINAL: return "Everything as the cartridge was: native resolution, no effects, the original sprite limit, speed and difficulty. Controls, sound and saves stay as they are.";
         case ACT_PRESET_ENHANCED: return "The recommended enhancements: the art redrawn at 3x with light sharpening, a soft glow, the HDR look, hit effects, living water, no sprite flicker and no slowdown.";
@@ -499,7 +501,7 @@ static MenuAction act(int dir, bool activate) {
         case ACT_ROM: sound(1); return MENU_ROM;
         case ACT_EXIT: return MENU_QUIT;
         case ACT_CONTROLS: sound(1); controls_open(); return MENU_NONE;
-        case ACT_STATS: case ACT_MAP: return MENU_NONE;           /* shown on the right */
+        case ACT_STATS: case ACT_MAP: case ACT_JOURNAL: return MENU_NONE;   /* shown on the right */
         case ACT_PRESET_ORIGINAL: case ACT_PRESET_ENHANCED:
             if (it->id == ACT_PRESET_ORIGINAL) settings_preset_original();
             else settings_preset_enhanced();
@@ -675,6 +677,56 @@ static void draw_slot_picture(float alpha) {
     ui_draw_text("\xE2\x86\x90 \xE2\x86\x92  change slot", FONT, 14, 400, 0, PIC_X, TEXT_Y + 28, C_DIM, C_DIM, alpha);
 }
 
+/* `s` cut to fit `w`, with an ellipsis when cut. */
+static void fit_text(char *out, size_t n, const char *s, const char *face, float px, int weight, float w) {
+    snprintf(out, n, "%s", s);
+    if (ui_text_width(out, face, px, weight, 0) <= w) return;
+    size_t len = strlen(out);
+    while (len > 0) {
+        do len--; while (len > 0 && (out[len] & 0xC0) == 0x80);
+        while (len > 0 && out[len - 1] == ' ') len--;
+        if (len + 4 > n) continue;
+        memcpy(out + len, "\xE2\x80\xA6", 4);
+        if (ui_text_width(out, face, px, weight, 0) <= w) return;
+    }
+}
+
+/* The journal: the story so far, from the game's own lines (story.c). */
+static void draw_journal(float alpha) {
+    StoryEvent ev[16];
+    int done, total, n = story_events(ev, 16, &done, &total);
+    if (!total) {
+        draw_wrapped("The journal reads the story from the USA cartridge's text; this version's is not read yet.", PIC_X, PIC_Y + 6, PIC_W, 15.5f, C_FAINT, alpha);
+        return;
+    }
+    char head[96];
+    snprintf(head, sizeof head, "%d of %d story events", done, total);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X, PIC_Y + 2, C_TEXT, C_TEXT, alpha);
+    snprintf(head, sizeof head, "%d%%", total ? done * 100 / total : 0);
+    float hw = ui_text_width(head, FONT_SB, 17, 600, 0);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X + PIC_W - hw, PIC_Y + 2, C_GOLD, C_GOLD, alpha);
+    float by = PIC_Y + 32;
+    ui_fill_rect(PIC_X, by, PIC_W, 4, C_LINE, alpha);
+    ui_fill_rect(PIC_X, by, PIC_W * done / (float)total, 4, C_GOLD, alpha);
+    float y = by + 18;
+    if (!n) {
+        draw_wrapped("Nothing yet: what people tell you as the story moves on is noted here, newest first.", PIC_X, y, PIC_W, 15.5f, C_FAINT, alpha);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        char buf[256];
+        bool named = ev[i].who[0] != 0;
+        if (y + (named ? 38 : 22) > PIC_Y + PIC_H + 90) break;
+        if (named) {
+            ui_draw_text(ev[i].who, FONT_SB, 12, 600, 1.5f, PIC_X, y, i ? C_DIM : C_GOLD, i ? C_DIM : C_GOLD, alpha);
+            y += 16;
+        }
+        fit_text(buf, sizeof buf, ev[i].line, FONT, 15.5f, 400, PIC_W);
+        ui_draw_text(buf, FONT, 15.5f, 400, 0, PIC_X, y, i ? C_DIM : C_TEXT, i ? C_DIM : C_TEXT, alpha);
+        y += 30;
+    }
+}
+
 /* The right side: the picture for the selected row, and what the row does. */
 static void draw_side(float t, float alpha) {
     const Item *it = item_at(selected);
@@ -715,6 +767,7 @@ static void draw_side(float t, float alpha) {
         draw_wrapped(about(it), PIC_X, TEXT_Y + 52, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
+    if (it && it->kind == ITEM_ACTION && it->id == ACT_JOURNAL) { draw_journal(alpha); return; }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_STATS) {
         char lines[12][64];
         int n = combat_stats_lines(lines, 12);
