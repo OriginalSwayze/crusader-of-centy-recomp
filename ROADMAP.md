@@ -68,7 +68,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 | Time-of-day / day-night tint | Build: the camera and "in play" are mapped; indoors and outdoors still need telling apart, or houses would darken at night |
 | Enhanced water (ripples, reflections, shoreline foam) | Done: EFFECTS > Water, tuned to Centy's cyan streams, with droplets and ripples when wading (the feet's ground read from the frame's planes) |
 | Falling leaves, fireflies, rain, snow | Removed: they were a Beyond Oasis-style overlay, not part of this game's look; may come back per area once areas are mapped |
-| Grass, flowers and trees swaying; dust | Build: needs the plants found in the scenery |
+| Grass, flowers and trees swaying; dust | Blocked: outdoors, plane B holds the tree tops together with the lawns, hedges and trunks, and plane A only the trees' checkerboard shadows; the sprites are characters and items. Telling a tree top from a lawn needs each area's plant tiles listed (a table of tile numbers per area), not a guess from colour |
 | Fog, wind, weather by area | Build: needs the areas mapped (the map number is, `$FFFE76`) |
 | Soft shadows under characters, ambient occlusion | Not needed: the characters' sprites carry their own shadow. The scenery's shadows (trees) are checkerboard dither: Settings > Display > Blend dither shows them as an even, see-through shade (`hd.c`) |
 | Particles: sword sparks, enemy defeat, impacts, debris | Done: Effects > Hit effects: sparks from every hit; a flash, ring, embers and leaves from every defeat |
@@ -120,5 +120,5 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 ## Next steps, in order
 
 1. Story flags: 102 named (Paused > Journal); the rest are items picked up (`$030B22`), script commands with no line (`$030AC6`), first visits (the table at `$38B8`) and code. Naming them needs the areas named too.
-2. Vegetation swaying: needs the plants found in the scenery (their tiles per area).
+2. Vegetation swaying: needs each area's plant tiles listed (tree tops share plane B with the lawns).
 3. Companion pages, then the larger modes (New Game+, Boss Rush).
