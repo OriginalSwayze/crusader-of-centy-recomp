@@ -24,8 +24,6 @@
 #include "genesis.h"
 #include "game.h"
 #include "recomp_rt.h"
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 int ws_extra, ws_cols;
