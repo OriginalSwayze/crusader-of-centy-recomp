@@ -24,6 +24,8 @@
 #include "genesis.h"
 #include "game.h"
 #include "recomp_rt.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int ws_extra, ws_cols;
@@ -77,13 +79,27 @@ static uint32_t row_draw(uint32_t pc) {
 /* ---- Each frame ------------------------------------------------------------------------ */
 static int last_cam_x = -100000, last_map = -1;
 static bool was_scrolling;
+static int settle;                      /* frames left to wait for a new area's set-up */
+static uint16_t settle_from;            /* $FFA502 when the map number changed */
 
 void widescreen_frame(void) {
     if (!ws_extra) return;
     bool play = ram16(0xAC00) != 0, scrolling = play && ram16(0xA4DE) == 0 && vdp_screen_width() == 320;
     vdp_opts.mask_sides = !scrolling;
     int cam_x = (int16_t)ram16(0xA4F2), map = ram16(0xFE76);
-    if (scrolling && (!was_scrolling || map != last_map || cam_x - last_cam_x > 15 || last_cam_x - cam_x > 15))
+    /* A door changes the map number first; the plane's address and the camera's blocks stay
+     * the old area's until the new one is set up, some 25 frames on ($FFA502 changes then).
+     * A redraw in between would draw with the old area's values, into the old area's plane:
+     * where the new area draws in the other plane, that is left full of pieces (the town
+     * draws in plane B at $E000, the fields beside it in plane A). So after a map change
+     * nothing is redrawn until $FFA502 moves, or two seconds have passed. */
+    if (map != last_map) { settle = 120; settle_from = ram16(0xA502); }
+    bool redraw = scrolling && (!was_scrolling || map != last_map || cam_x - last_cam_x > 15 || last_cam_x - cam_x > 15);
+    if (settle) {
+        if (ram16(0xA502) != settle_from || --settle == 0) { settle = 0; redraw = scrolling; }
+        else redraw = false;
+    }
+    if (redraw)
         for (int dy = 0; dy < 16; dy++) draw_row(dy);
     was_scrolling = scrolling;
     last_cam_x = cam_x;
@@ -100,5 +116,6 @@ void widescreen_set(int extra) {
     vdp_opts.extra_width = extra;
     if (!extra) vdp_opts.mask_sides = false;
     was_scrolling = false;              /* redraw the sides at the next frame */
+    settle = 0;
     if (game) machine_override(game->row_draw, extra ? row_draw : NULL);
 }
