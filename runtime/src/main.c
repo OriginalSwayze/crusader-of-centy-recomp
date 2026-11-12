@@ -387,6 +387,20 @@ static void draw_achievement(SDL_Renderer *ren, int win_w, int win_h) {
     (void)win_h;
 }
 
+/* The internal scale to draw at for a picture shown `shown_h` pixels tall. With the Sharp
+ * scaler (plain blocks) a picture larger than the window looks exactly like one the window's
+ * size once scaled down, so `wanted` is held to the smallest offered scale (1, 2, 3, 4, 6, 8,
+ * 12, 16) whose 224 lines already cover that height: 16x on a 1440-line screen is drawn at
+ * 8x, the same to the eye, in a quarter of the time. The rounding scalers keep the setting:
+ * there, drawing larger and scaling down smooths the edges (supersampling). */
+static int window_scale_cap(int wanted, int shown_h) {
+    if (settings.scaler != 2) return wanted;
+    static const int scales[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
+    int cap = 16;
+    for (int k = 0; k < 8; k++) if (scales[k] * 224 >= shown_h) { cap = scales[k]; break; }
+    return wanted < cap ? wanted : cap;
+}
+
 static SDL_Rect display_rect(int win_w, int win_h) {
     int fw = frame_width(), fh = vdp_screen_height();
     double par = (4.0 / 3.0) / (320.0 / 224.0);
@@ -1592,8 +1606,9 @@ int main(int argc, char **argv) {
         SDL_Rect dst = display_rect(ww, wh);
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
         SDL_RenderClear(ren);
-        /* The internal resolution this picture: the setting's, or auto quality's step. */
-        int iscale = settings.auto_quality && quality_scale ? quality_scale : settings.internal_scale;
+        /* The internal resolution this picture: the setting's, or auto quality's step, but never
+         * more than the window shows (photo mode still saves at the full setting). */
+        int iscale = window_scale_cap(settings.auto_quality && quality_scale ? quality_scale : settings.internal_scale, dst.h);
         /* Shadows are drawn while the layers are put together, so they need this path too. */
         /* Smooth motion only above 60 Hz: at 60 every refresh has a game frame of its own. */
         SDL_DisplayMode dm;

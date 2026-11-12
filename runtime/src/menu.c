@@ -102,7 +102,7 @@ static const char *about(const Item *it) {
     case OPT_WIDESCREEN: return "Shows more of the world at the sides while you explore, drawn by the game's own map code. Title, story and menu screens keep the original 4:3 picture with black sides.";
     case OPT_WINDOW_ALL: return "Fullscreen, or a window of this many times the game's size. F11 switches at any time.";
     case OPT_INTEGER: return "Scales by whole numbers only, so every game pixel is the same size.";
-    case OPT_INTERNAL: return "Draws each layer at a higher resolution, rounding the edges of the pixel art. Native is the original look. 3-4x suits 1080p, 6x 1440p and 4K; 8x to 16x (up to 3584 lines) supersample for the sharpest picture and need a fast many-core CPU.";
+    case OPT_INTERNAL: return "Draws each layer at a higher resolution, rounding the edges of the pixel art. Native is the original look. 3-4x suits 1080p, 6x 1440p and 4K; 8x to 16x (up to 3584 lines) supersample for the sharpest picture and need a fast many-core CPU. With the Sharp scaler nothing is drawn larger than your screen shows, as it would look the same.";
     case OPT_SCALER: return "Edge rounds corners, Smooth (xBR) follows curves and slopes, Sharp keeps every pixel square, exactly as drawn.";
     case OPT_FILTER: return "Scanlines, a curved CRT tube or an LCD grid over the picture.";
     case OPT_SHARPEN: return "Crisper edges after scaling, without halos.";
