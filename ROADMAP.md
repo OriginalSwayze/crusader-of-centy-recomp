@@ -82,7 +82,7 @@ Hits come from `subq.w #1,($FFB100)` (one apple) and `sub.w d0,($FFB100)` at `$1
 |---|---|
 | Companion status indicators, information screen, ability descriptions, discovered list, showcase | Done: Paused > Journal, then right: joined count, Animal A / B, each animal's own line, the unmet ones hidden |
 | Quick companion selection | Map, Hard: must go through the game's own selection code to keep it safe |
-| Companion particle effects, visual feedback on abilities | Map |
+| Companion particle effects, visual feedback on abilities | Done for the abilities that show in a fight: with Inferno along hits throw flames, with Chilly ice shards, a frosty ring and flakes; Kitty reviving Corona gives a warm flash and sparkles (`runtime/src/combat.c`, with Hit effects on) |
 | New companion animations, idle animations, reactions, better following | Out for now: these need new sprite frames and changes to the game's AI, which would alter the original artwork and behaviour; possible later as an optional texture/animation pack |
 
 ## Stage 5: Interface and quality of life

@@ -69,6 +69,7 @@ static struct {
 static double session_s;
 bool combat_headless;                   /* test runs: effects as in play, stats untouched */
 int combat_test_burst;                  /* --test-burst N: frames until a test burst */
+int combat_test_revive;                 /* --test-revive N: frames until a pretend revive by Kitty (tests) */
 int combat_test_boss;                   /* --test-boss N: frames until a pretend boss is hit (tests) */
 static int test_boss_age = -1;
 bool combat_log;                        /* --combat-log: print every hit and defeat (tests) */
@@ -76,7 +77,7 @@ static uint32_t session_defeated;
 
 /* ---- Particles: world pixels, moved once a game frame --------------------------------- */
 typedef struct { float x, y, vx, vy, size; int age, life; uint32_t color; uint8_t kind; } Particle;
-enum { P_SPARK, P_EMBER, P_LEAF, P_FLASH, P_RING, P_DROP, P_RIPPLE };
+enum { P_SPARK, P_EMBER, P_LEAF, P_FLASH, P_RING, P_DROP, P_RIPPLE, P_FLAME, P_FLAKE };
 #define MAX_PARTICLES 768
 static Particle parts[MAX_PARTICLES];
 static int nparts;
@@ -90,9 +91,67 @@ static Particle *new_particle(void) {
     return p;
 }
 
+/* The animals taken along (Animal A / B, $FFFE72 / $FFFE74; story.c lists them). */
+#define INFERNO 8                       /* sets enemies ablaze */
+#define CHILLY  9                       /* gives the sword the power of ice */
+#define KITTY   5                       /* revives Corona once */
+static bool along(int animal) { return peek16(0xFE72) == animal || peek16(0xFE74) == animal; }
+
+/* What the animals along add to a hit: Inferno flames rising from it, Chilly ice shards, a
+ * frosty ring and flakes that drift down. */
+static void animal_burst(float x, float y, bool defeat, int more) {
+    if (along(INFERNO))
+        for (int i = 0; i < (defeat ? 12 : 6) * more; i++) {
+            Particle *p = new_particle();
+            if (!p) return;
+            p->x = x + (frand() - .5f) * 10; p->y = y - 2 + (frand() - .5f) * 6;
+            p->vx = (frand() - .5f) * .8f; p->vy = -.6f - frand() * .9f;
+            p->size = 1.3f + frand() * 1.2f; p->life = 16 + rand() % 14; p->kind = P_FLAME;
+            static const uint32_t fire[3] = { 0xFF7A20, 0xFFB030, 0xFF4A18 };
+            p->color = fire[rand() % 3];
+        }
+    if (along(CHILLY)) {
+        for (int i = 0; i < (defeat ? 9 : 5) * more; i++) {
+            Particle *p = new_particle();
+            if (!p) return;
+            float a = frand() * 6.2832f, v = 1.2f + frand() * 1.8f;
+            p->x = x; p->y = y - 4; p->vx = cosf(a) * v; p->vy = sinf(a) * v - .4f;
+            p->size = 1.0f + frand() * .6f; p->life = 10 + rand() % 8; p->kind = P_SPARK;
+            p->color = frand() < .5f ? 0xDDF6FF : 0x8CD8FF;
+        }
+        Particle *r = new_particle();
+        if (r) { r->x = x; r->y = y - 4; r->size = 3; r->life = 14; r->kind = P_RING; r->color = 0x9ADFFF; }
+        for (int i = 0; i < 4 * more; i++) {
+            Particle *p = new_particle();
+            if (!p) return;
+            p->x = x + (frand() - .5f) * 16; p->y = y - 10 + (frand() - .5f) * 8;
+            p->vx = (frand() - .5f) * .4f; p->vy = .15f + frand() * .2f;
+            p->size = .8f + frand() * .5f; p->life = 30 + rand() % 20; p->kind = P_FLAKE; p->color = 0xF0FAFF;
+        }
+    }
+}
+
+/* Kitty giving her life for Corona's: a warm flash, a ring and sparkles rising around him. */
+static void revive_burst(float x, float y) {
+    if (!settings.particles) return;
+    Particle *f = new_particle();
+    if (f) { f->x = x; f->y = y; f->size = 22; f->life = 14; f->kind = P_FLASH; f->color = 0xFFE6A0; }
+    Particle *r = new_particle();
+    if (r) { r->x = x; r->y = y; r->size = 6; r->life = 24; r->kind = P_RING; r->color = 0xFFD070; }
+    for (int i = 0; i < 24; i++) {
+        Particle *p = new_particle();
+        if (!p) return;
+        float a = frand() * 6.2832f, d = 6 + frand() * 10;
+        p->x = x + cosf(a) * d; p->y = y + sinf(a) * d * .6f;
+        p->vx = (frand() - .5f) * .3f; p->vy = -.5f - frand() * .7f;
+        p->size = .9f + frand() * .8f; p->life = 30 + rand() % 24; p->kind = P_FLAME; p->color = frand() < .5f ? 0xFFF0C0 : 0xFFD060;
+    }
+}
+
 static void spark_burst(float x, float y, bool defeat) {
     if (!settings.particles) return;
     int more = settings.particles == 2 ? 2 : 1;
+    animal_burst(x, y, defeat, more);
     int n = (defeat ? 10 : 7) * more;
     for (int i = 0; i < n; i++) {               /* sparks: fast, short, white to gold */
         Particle *p = new_particle();
@@ -133,6 +192,8 @@ static void move_particles(void) {
         case P_RING:  p->size += 1.6f - p->age * .06f; break;
         case P_DROP:  p->vx *= .96f; p->vy += .16f; break;
         case P_RIPPLE: p->size += .45f; break;
+        case P_FLAME: p->vx = p->vx * .9f + sinf(p->age * .4f + p->size * 5) * .06f; p->vy *= .97f; p->size *= .985f; break;
+        case P_FLAKE: p->vx = p->vx * .95f + sinf(p->age * .2f + p->size * 9) * .05f; break;
         default: break;
         }
         i++;
@@ -324,6 +385,8 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
     if (live && play) { session_s += machine_frame_s(); total.play_s += machine_frame_s(); }
     move_particles();
     splashes(f, world, cam_x, cam_y);
+    if (combat_test_revive > 0 && --combat_test_revive == 0)
+        revive_burst((float)(int16_t)peek16(0xAC12) + 8, (float)(int16_t)peek16(0xAC16) - 8);
     if (combat_test_burst > 0 && --combat_test_burst == 0) {   /* --test-burst: a hit and a defeat by the player */
         float px = (float)(int16_t)peek16(0xAC12), py = (float)(int16_t)peek16(0xAC16);
         spark_burst(px - 20, py, false);
@@ -400,6 +463,14 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
         if (!hp_now) total.deaths++;
         rumble(.85f, .5f, 220);
     }
+    /* Kitty: her bit leaves the animals ($7680) when she revives Corona, after his health hit 0. */
+    static int since_zero = 1 << 20;
+    static bool had_kitty;
+    since_zero = hp_now ? since_zero + 1 : 0;
+    bool kitty = (peek16(0xFE6C) >> KITTY) & 1;
+    if (have_last && play && had_kitty && !kitty && since_zero < 600 && (live || combat_headless))
+        revive_burst((float)(int16_t)peek16(0xAC12) + 8, (float)(int16_t)peek16(0xAC16) - 8);
+    had_kitty = kitty;
     player_hp = hp_now;
     have_last = true;
 }
@@ -495,6 +566,7 @@ static void draw_particles(uint32_t *px, int w, int h, const HdPost *p, float s)
         case P_FLASH: glow(px, w, h, x, y, q->size * s * (.6f + t), q->color, (int)(200 * fade * fade), GLOW_ADD); break;
         case P_RING:  glow(px, w, h, x, y, q->size * s, q->color, (int)(230 * fade), GLOW_RING); break;
         case P_DROP:  glow(px, w, h, x, y, q->size * s, q->color, (int)(235 * fade), GLOW_SOLID); break;
+        case P_FLAKE: glow(px, w, h, x, y, q->size * s, q->color, (int)(220 * (fade < .4f ? fade / .4f : 1)), GLOW_SOLID); break;
         case P_RIPPLE: {
             /* a flat ring on the water: an ellipse half as tall as it is wide */
             float rx = q->size * s, ry = rx * .45f, band = s * .9f + 1;

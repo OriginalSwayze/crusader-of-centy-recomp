@@ -856,6 +856,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--warp") && i + 3 < argc) { warp_at = atoi(argv[++i]); warp_area = (int)strtol(argv[++i], NULL, 0); warp_entry = atoi(argv[++i]); }   /* tests: go to an area as a door does */
         else if (!strcmp(argv[i], "--ngplus-at") && i + 1 < argc) ngplus_at = atoi(argv[++i]);   /* tests: start New Game+ (and reset) at frame N */
         else if (!strcmp(argv[i], "--dither-blend") && i + 1 < argc) settings.dither_blend = hd_dither_blend = atoi(argv[++i]) != 0;   /* tests: 0 or 1 */
+        else if (!strcmp(argv[i], "--test-revive") && i + 1 < argc) { extern int combat_test_revive; combat_test_revive = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--test-boss") && i + 1 < argc) { extern int combat_test_boss; combat_test_boss = atoi(argv[++i]); }
         else if (!strcmp(argv[i], "--particles") && i + 1 < argc) { settings.particles = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--hdr") && i + 1 < argc) { settings.hdr = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */

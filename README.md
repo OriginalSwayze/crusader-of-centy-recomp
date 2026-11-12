@@ -23,7 +23,7 @@ interpreter. It shares its recompiler and runtime with
 | Save states and rewind | done |
 | In-game menu: save/load slots with thumbnails, options, controls, reset, quit | done |
 | Internal resolution 2-16x, scalers, display filters, lighting, HDR, sharpening, texture packs | done |
-| Hit effects: sparks from hits, bursts from defeated enemies | done |
+| Hit effects: sparks from hits, bursts from defeated enemies; with Inferno along hits also throw flames, with Chilly ice; Kitty's revive glows | done |
 | Photo mode (F9): freeze, hide the HUD, save a full-resolution PNG | done |
 | Autosave when the story moves on | done |
 | Walking speed option | done |
@@ -136,7 +136,7 @@ options: `--press`, `--shot F.png`, `--shots EVERY DIR`, `--watch ADDR,...`,
 `--hd-shot F.png SCALE`, `--filter-shot F.png W H MODE`, `--gpu-shot GPU.png CPU.png`,
 `--bench N`, `--pc-profile N`, `--wav F`, `--overclock PERCENT`, `--save-to N`, `--load N`,
 `--states-base PREFIX`, `--switch-language F ID`, `--poke FFxxxx:VV[VV],...`, `--difficulty N`,
-`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees), `--test-boss N` (a pretend boss hit from frame N, to see the boss bar), `--dither-blend 0|1`, `--ngplus-at N` (pretend progress, then New Game+ and a reset at frame N), `--achieve-test` (achievements are checked in test runs too), `--warp F AREA ENTRY` (at frame F go to an area as a door does), `--autopilot-from F` (the autopilot waits until frame F), `--smooth-check DIR SCALE` (the last 4 frames drawn at thirds between ticks, as a 180 Hz display shows them),
+`--infinite-health`, `--combat N`, `--combat-log` (prints every hit and defeat the combat info sees), `--test-boss N` (a pretend boss hit from frame N, to see the boss bar), `--dither-blend 0|1`, `--ngplus-at N` (pretend progress, then New Game+ and a reset at frame N), `--achieve-test` (achievements are checked in test runs too), `--test-revive N` (a pretend revive by Kitty), `--warp F AREA ENTRY` (at frame F go to an area as a door does), `--autopilot-from F` (the autopilot waits until frame F), `--smooth-check DIR SCALE` (the last 4 frames drawn at thirds between ticks, as a 180 Hz display shows them),
 `--water 0|1`, `--widescreen 0|1|2`, `--trace-ram LO HI` (with `--interpret`: the PC of every write to $FFLO-$FFHI), `--launcher-shot F.png W H PAGE ROW T`, `--launcher-test N` (with `--window-test`), `--no-launcher`.
 
 ## How it fits together
