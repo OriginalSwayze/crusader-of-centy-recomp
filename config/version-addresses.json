@@ -204,6 +204,18 @@
             "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
           ]
         ],
+        "023038": [
+          "sub.w\t($FFFFA4F2).w,d2",
+          [
+            "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+          ]
+        ],
+        "023040": [
+          "cmpi.w\t#$180,d2",
+          [
+            "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
+          ]
+        ],
         "0252CC": [
           "sub.w\t($FFFFA4F2).w,d0",
           [
@@ -475,6 +487,18 @@
           "cmpi.w\t#$180,d0",
           [
             "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(0) & 0xFFFFu);"
+          ]
+        ],
+        "023002": [
+          "sub.w\t($FFFFA4F2).w,d2",
+          [
+            "setw(&D(2), subw((rd16(0xFFA4F2) - (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu));"
+          ]
+        ],
+        "02300A": [
+          "cmpi.w\t#$180,d2",
+          [
+            "cmpw((0x180u + 2u * (uint32_t)ws_extra) & 0xFFFFu, D(2) & 0xFFFFu);"
           ]
         ],
         "025296": [

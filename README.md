@@ -16,7 +16,7 @@ interpreter. It shares its recompiler and runtime with
 | Part | State |
 |---|---|
 | ROM verification (`tools/setup.mjs`) | done: USA, Japan, Korea |
-| 68000 decoder, code tracer, disassembly listing (`tools/disasm.mjs`) | done: ~90 KB of code in 6,551 blocks (USA), from static tracing plus the code seen running in play (`config/coverage*.txt`) |
+| 68000 decoder, code tracer, disassembly listing (`tools/disasm.mjs`) | done: ~148 KB of code in 10,154 blocks (USA; Japan 9,747, Korea 9,970), from static tracing plus the code seen running in every area (`config/coverage*.txt`) |
 | 68000 → C recompiler (`tools/recomp.mjs`, run by CMake) | done: 99.98% of 68000 time runs as native C on the tested route |
 | Runtime: memory map, VDP, pads, save RAM, settings | done |
 | Z80 + YM2612 + PSG sound | done |
@@ -53,8 +53,16 @@ select into the hero's house (5,400 frames):
   all three versions
 * `--state-check 4300 5300`: replay identical; `--rewind-check 600`: state identical
 
-Areas past the house have not been played yet: code first reached there runs on the
-interpreter until `tools/save-coverage.mjs` adds it (see Usage).
+In every area of the game (136 area numbers, each entered from a save and walked about),
+for all three versions:
+
+* native and `--interpret` runs identical every frame; `--verify` on a long walk: 0 mismatches
+* widescreen: the map plane matches the map over the whole 16:9 view, entered from areas that
+  draw in either plane, and the other plane is the same as in 4:3
+* the HD picture (2x, effects off) equals the VDP's own picture pixel for pixel, in 4:3 and 16:9
+
+Code not yet seen running still works: it runs on the interpreter until
+`tools/save-coverage.mjs` adds it (see Usage).
 
 The plan for the Enhanced Edition, item by item, is in [ROADMAP.md](ROADMAP.md).
 

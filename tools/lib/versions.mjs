@@ -66,6 +66,23 @@ export function mapAddresses(usa, target, list = USA_ADDRESSES, allowMissing = f
       if (ok(a, c)) { found.set(a, c); break; }
     }
   }
+  // Code repeated many times over (the same check in many routines): when a window around
+  // the address occurs as often in the target as in the USA ROM, the nth one is the nth one.
+  const all = (buf, pat) => { const at = []; for (let i = buf.indexOf(pat); i >= 0; i = buf.indexOf(pat, i + 1)) at.push(i); return at; };
+  for (const a of list) {
+    if (found.has(a) && ok(a, found.get(a))) continue;
+    for (const len of [12, 16, 24]) {
+      let done = false;
+      for (const back of [0, len / 2, len - 2]) {
+        const pat = usa.subarray(a - back, a - back + len);
+        const inUsa = all(usa, pat), inTarget = all(target, pat);
+        if (inUsa.length < 2 || inUsa.length !== inTarget.length) continue;
+        const c = inTarget[inUsa.indexOf(a - back)] + back;
+        if (ok(a, c)) { found.set(a, c); done = true; break; }
+      }
+      if (done) break;
+    }
+  }
   const missing = list.filter((a) => !found.has(a) || !ok(a, found.get(a)));
   if (allowMissing) { for (const a of missing) found.delete(a); found.missing = missing; return found; }
   if (missing.length) throw new Error(`not found: ${missing.map((a) => a.toString(16).toUpperCase().padStart(6, '0')).join(', ')}`);
