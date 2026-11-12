@@ -881,7 +881,16 @@ static void draw_side(float t, float alpha) {
         if (mi.doors) n += snprintf(sub + n, sizeof sub - n, "%s%d door%s found", n ? "  \xC2\xB7  " : "", mi.doors, mi.doors == 1 ? "" : "s");
         if (!n) snprintf(sub, sizeof sub, "Not fully known yet");
         ui_draw_text(sub, FONT, 15, 400, 0, PIC_X, TEXT_Y + 25, C_DIM, C_DIM, alpha);
-        draw_wrapped(about(it), PIC_X, TEXT_Y + 52, PIC_W, 15.5f, C_DIM, alpha);
+        /* The places found so far, by the game's own names. */
+        bool seen[32];
+        int found = automap_places_seen(seen), total = 0;
+        while (total < 31 && story_place_name(total + 1)) total++;
+        if (!total) { draw_wrapped(about(it), PIC_X, TEXT_Y + 52, PIC_W, 15.5f, C_DIM, alpha); return; }
+        char names[640];
+        int k = snprintf(names, sizeof names, "Places found  %d of %d", found, total);
+        for (int p = 1, first = 1; p <= total && k < (int)sizeof names - 40; p++)
+            if (seen[p]) { k += snprintf(names + k, sizeof names - k, "%s%s", first ? ":  " : ",  ", story_place_name(p)); first = 0; }
+        draw_wrapped(names, PIC_X, TEXT_Y + 52, PIC_W, 15.5f, C_DIM, alpha);
         return;
     }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_JOURNAL) { draw_journal(alpha); return; }

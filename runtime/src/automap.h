@@ -34,5 +34,7 @@ void automap_info(AutomapInfo *out);
 
 /* How many of the game's places (story.h) have an area visited. */
 int automap_places(void);
+/* The same, with seen[k] set for each place k found. */
+int automap_places_seen(bool seen[32]);
 
 #endif

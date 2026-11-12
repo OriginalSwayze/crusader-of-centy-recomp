@@ -258,12 +258,17 @@ bool automap_draw(float x, float y, float w, float h, float t, float alpha) {
     return true;
 }
 
-int automap_places(void) {
-    bool seen[32] = { false };
+int automap_places_seen(bool seen[32]) {
+    memset(seen, 0, 32 * sizeof *seen);
     int n = 0;
     for (int i = 0; i < count; i++)
         if (areas[i].key && areas[i].place > 0 && areas[i].place < 32 && !seen[(int)areas[i].place]) { seen[(int)areas[i].place] = true; n++; }
     return n;
+}
+
+int automap_places(void) {
+    bool seen[32];
+    return automap_places_seen(seen);
 }
 
 void automap_info(AutomapInfo *o) {
