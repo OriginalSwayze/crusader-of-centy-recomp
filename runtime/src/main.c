@@ -688,6 +688,7 @@ void console_attach(void);           /* console.c */
  * the internal resolution with every effect, into screenshots/ next to the game. */
 static bool photo, photo_hud = true, photo_test;
 static uint16_t autopilot;              /* --autopilot: the attack button, 0 off */
+static const char *dump_mem;           /* --dump-mem PREFIX: PREFIX.ram and PREFIX.vram written after a test run */
 static int dump_ram_at = -1, dump_ram_len;   /* --dump-ram ADDR LEN: work RAM printed after a test run */
 static double photo_hint_at;            /* when the hint bar was last shown (seconds) */
 static char photo_hint_text[200];
@@ -897,6 +898,7 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--walk-speed") && i + 1 < argc) { settings.walk_speed = atoi(argv[++i]) % 3; test_overrides = true; }   /* 0-2 */
         else if (!strcmp(argv[i], "--autosave-test")) autosave_test = true;   /* autosave in test runs too */
+        else if (!strcmp(argv[i], "--dump-mem") && i + 1 < argc) dump_mem = argv[++i];
         else if (!strcmp(argv[i], "--dump-ram") && i + 2 < argc) {   /* ADDR LEN, hex address in work RAM */
             dump_ram_at = (int)(strtol(argv[++i], NULL, 16) & 0xFFFF);
             dump_ram_len = atoi(argv[++i]);
@@ -1189,6 +1191,16 @@ int main(int argc, char **argv) {
                 fwrite(vdp.reg, 1, sizeof vdp.reg, df);
                 fclose(df);
             }
+        }
+        if (dump_mem) {
+            char p[1100];
+            FILE *df;
+            snprintf(p, sizeof p, "%s.ram", dump_mem);
+            if ((df = fopen(p, "wb"))) { fwrite(bus.ram, 1, 0x10000, df); fclose(df); }
+            snprintf(p, sizeof p, "%s.vram", dump_mem);
+            if ((df = fopen(p, "wb"))) { fwrite(vdp.vram, 1, 0x10000, df); fclose(df); }
+            snprintf(p, sizeof p, "%s.reg", dump_mem);
+            if ((df = fopen(p, "wb"))) { fwrite(vdp.reg, 1, sizeof vdp.reg, df); fclose(df); }
         }
         if (dump_ram_at >= 0)
             for (int k = 0; k < dump_ram_len; k++) {
