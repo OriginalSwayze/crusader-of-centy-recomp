@@ -34,7 +34,7 @@
 #define APP_NAME   "Crusader of Centy"
 #define GAME_EXE   "CrusaderOfCenty.exe"
 #define UNINST_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CrusaderOfCentyRecomp"
-#define VERSION    "0.1"
+#define VERSION    "1.0"
 #define ROM_NAME   "Crusader of Centy (USA)"
 
 /* ---- The ROMs --------------------------------------------------------------------------- *

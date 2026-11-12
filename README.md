@@ -31,7 +31,7 @@ interpreter. It shares its recompiler and runtime with
 | Slowdown fix (68000 at 150-300%), sprite flicker fix, fast-forward | done |
 | Difficulty (damage taken 50-200%), infinite health, Original / Enhanced presets | done: the hit routine is patched (`config/patches.json`), tested on real hits |
 | Combat info (damage numbers, enemy health bars, a boss bar for foes of 16 points or more), rumble, play timer, stats | done (`runtime/src/combat.c`) |
-| Installer (`setup/setup.c`) and one-click builder | renamed for this game, not yet released |
+| Installer (`setup/setup.c`) and one-click builder | done: released from 1.0 (Releases page: Setup.exe, or the builder zip); tested by a full install from the ROM |
 | Water: streams that swell, foam at the shore and reflect what stands in them (Settings > Effects) | done (`runtime/src/hd.c`): picture only, the game is untouched |
 | Journal (Paused > Journal): the story events done so far, newest first, each named by the game's own line that marks it, read from your cartridge (USA) when it loads; the order met is kept in `journal.bin`. Left / right shows the animals: how many have joined, who is along as Animal A and B, and each one's own line about what it can do (the ones not met yet stay hidden) | done (`runtime/src/story.c`) |
 | Achievements (Paused > Stats, then right): 18 goals worked out from what the game does (animals, places, story, enemies, big foes, health, money, New Game+, play time), each kept with its date; a short message over the game when one is met | done (`runtime/src/achieve.c`) |
