@@ -258,6 +258,14 @@ bool automap_draw(float x, float y, float w, float h, float t, float alpha) {
     return true;
 }
 
+int automap_places(void) {
+    bool seen[32] = { false };
+    int n = 0;
+    for (int i = 0; i < count; i++)
+        if (areas[i].key && areas[i].place > 0 && areas[i].place < 32 && !seen[(int)areas[i].place]) { seen[(int)areas[i].place] = true; n++; }
+    return n;
+}
+
 void automap_info(AutomapInfo *o) {
     memset(o, 0, sizeof *o);
     o->percent = -1;

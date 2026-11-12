@@ -21,6 +21,7 @@
 #include "automap.h"
 #include "story.h"
 #include "ngplus.h"
+#include "achieve.h"
 #include "savestate.h"
 #include "ui.h"
 #include "text.h"
@@ -336,6 +337,56 @@ static void draw_stats(SDL_Renderer *ren, int win_w, int win_h) {
     }
 }
 
+/* A newly met achievement, for a few seconds at the top right of the window. */
+static void draw_achievement(SDL_Renderer *ren, int win_w, int win_h) {
+    static SDL_Texture *tex;
+    static const Achievement *made_for;
+    static int tw, th;
+    double age;
+    const Achievement *a = achieve_recent(4.5, &age);
+    if (!a) return;
+    if (a != made_for || !tex) {
+        int px = win_h / 40 > 14 ? win_h / 40 : 14, pad = px * 3 / 4;
+        TextMask m[2] = { text_render("ACHIEVEMENT", "Segoe UI Semibold", px * 2 / 3, 600, 2),
+                          text_render(a->title, "Segoe UI Semibold", px, 600, 0) };
+        int w = m[0].w > m[1].w ? m[0].w : m[1].w, gap = px / 3;
+        int ww = w + pad * 2, hh = m[0].h + gap + m[1].h + pad * 2;
+        uint32_t *img = calloc((size_t)ww * hh, 4);
+        if (img) {
+            for (int i = 0; i < ww * hh; i++) img[i] = 0xD0121A14u;
+            for (int x = 0; x < ww; x++) img[x] = 0xFFC9A55Au;                      /* a gold line on top */
+            for (int k = 0; k < 2; k++) {
+                uint32_t c = k ? 0xFFF4ECD8u : 0xFFC9A55Au;
+                int oy = pad + (k ? m[0].h + gap : 0);
+                for (int y = 0; y < m[k].h; y++)
+                    for (int x = 0; x < m[k].w; x++) {
+                        int al = m[k].a ? m[k].a[y * m[k].w + x] : 0, ix = pad + x, iy = oy + y;
+                        if (!al || ix >= ww || iy >= hh) continue;
+                        uint32_t d = img[iy * ww + ix];
+                        int r = (int)((d >> 16) & 255) + ((int)((c >> 16) & 255) - (int)((d >> 16) & 255)) * al / 255;
+                        int g = (int)((d >> 8) & 255) + ((int)((c >> 8) & 255) - (int)((d >> 8) & 255)) * al / 255;
+                        int b = (int)(d & 255) + ((int)(c & 255) - (int)(d & 255)) * al / 255;
+                        img[iy * ww + ix] = 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
+                    }
+            }
+            if (tex) SDL_DestroyTexture(tex);
+            tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, ww, hh);
+            if (tex) { SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND); SDL_UpdateTexture(tex, NULL, img, ww * 4); }
+            tw = ww; th = hh;
+            free(img);
+        }
+        text_free(&m[0]); text_free(&m[1]);
+        made_for = a;
+    }
+    if (!tex) return;
+    double fade = age < .3 ? age / .3 : age > 4.0 ? (4.5 - age) / .5 : 1;
+    int slide = (int)((1 - (fade > 1 ? 1 : fade)) * th / 2);
+    SDL_SetTextureAlphaMod(tex, (Uint8)(255 * (fade < 0 ? 0 : fade > 1 ? 1 : fade)));
+    SDL_Rect r = { win_w - tw - win_w / 60, win_h / 40 - slide, tw, th };
+    SDL_RenderCopy(ren, tex, NULL, &r);
+    (void)win_h;
+}
+
 static SDL_Rect display_rect(int win_w, int win_h) {
     int fw = frame_width(), fh = vdp_screen_height();
     double par = (4.0 / 3.0) / (320.0 / 224.0);
@@ -407,9 +458,12 @@ static void story_watch(void) {
     }
 }
 
+static bool achieve_test;               /* --achieve-test: achievements are checked in test runs too */
+
 static void after_frame(bool live) {
     ngplus_frame();
     if (live || autosave_test) story_watch();
+    if (live || achieve_test) achieve_frame();
     if (!vdp_opts.hd_capture) return;
     hd_frame_done();
     HdPost here = finishing(1, 0);
@@ -798,6 +852,7 @@ int main(int argc, char **argv) {
             settings.smooth_motion = true;
         }
         else if (!strcmp(argv[i], "--autopilot-from") && i + 1 < argc) autopilot_from = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--achieve-test")) achieve_test = true;
         else if (!strcmp(argv[i], "--warp") && i + 3 < argc) { warp_at = atoi(argv[++i]); warp_area = (int)strtol(argv[++i], NULL, 0); warp_entry = atoi(argv[++i]); }   /* tests: go to an area as a door does */
         else if (!strcmp(argv[i], "--ngplus-at") && i + 1 < argc) ngplus_at = atoi(argv[++i]);   /* tests: start New Game+ (and reset) at frame N */
         else if (!strcmp(argv[i], "--dither-blend") && i + 1 < argc) settings.dither_blend = hd_dither_blend = atoi(argv[++i]) != 0;   /* tests: 0 or 1 */
@@ -1312,6 +1367,7 @@ int main(int argc, char **argv) {
     automap_load(base_dir);
     story_load(base_dir);
     ngplus_load(base_dir);
+    achieve_load(base_dir);
     while (running) {
         SDL_Event e;
         int ww, wh;
@@ -1599,6 +1655,7 @@ int main(int argc, char **argv) {
             speed.draw += (double)(SDL_GetPerformanceCounter() - t_upload) * ms;
         }
         if (settings.perf_stats) draw_stats(ren, ww, wh);
+        if (!menu_is_open()) draw_achievement(ren, ww, wh);
         if (photo) photo_draw_hint(ren, ww, wh, (double)(SDL_GetPerformanceCounter() - start) / freq);
         if (window_test && (double)(SDL_GetPerformanceCounter() - start) / freq >= window_test) {
             uint32_t *shot_px = malloc((size_t)ww * wh * 4);
@@ -1638,6 +1695,7 @@ int main(int argc, char **argv) {
     automap_save(base_dir);
     story_save(base_dir);
     ngplus_save(base_dir);
+    achieve_save(base_dir);
     if (!menu_is_open()) {
         HdPost here = finishing(1, 0);
         preview_set_world(here.world, here.cam_x, here.cam_y, -1, -1);

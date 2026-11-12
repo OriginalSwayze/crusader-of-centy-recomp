@@ -36,4 +36,9 @@ void combat_stats_save(const char *base_dir);
 /* The stats as lines of "label\tvalue", for the pause menu's card. */
 int  combat_stats_lines(char lines[][64], int max);
 
+/* Totals over all sessions (stats.ini): enemies defeated, foes of 16 points or more defeated,
+ * seconds played. */
+typedef struct { uint32_t defeated, big_foes; double play_s; } CombatTotals;
+void combat_totals(CombatTotals *out);
+
 #endif

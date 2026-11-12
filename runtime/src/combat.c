@@ -64,7 +64,7 @@ static int nnumbers;
 /* ---- Stats ------------------------------------------------------------------------------ */
 static struct {
     double play_s;                      /* all sessions */
-    uint32_t defeated, dealt, taken, hits_taken, deaths, biggest;
+    uint32_t defeated, dealt, taken, hits_taken, deaths, biggest, big_foes;
 } total;
 static double session_s;
 bool combat_headless;                   /* test runs: effects as in play, stats untouched */
@@ -364,6 +364,7 @@ void combat_frame(const HdFrame *f, bool world, float cam_x, float cam_y, bool l
                 total.dealt += (uint32_t)points(d);
                 if ((uint32_t)points(d) > total.biggest) total.biggest = (uint32_t)points(d);
                 if (defeated) { total.defeated++; session_defeated++; }
+                if (defeated && s->max >= BOSS_HP && s->max < 0x8000) total.big_foes++;
                 if (defeated) rumble(.45f, .7f, 150); else rumble(.2f, .45f, 80);
             }
             s->bar_age = defeated ? -1 : 0;
@@ -622,6 +623,7 @@ void combat_stats_load(const char *base_dir) {
         const char *v = eq + 1;
         if (!strcmp(line, "play_seconds")) total.play_s = atof(v);
         else if (!strcmp(line, "enemies_defeated")) total.defeated = (uint32_t)strtoul(v, NULL, 10);
+        else if (!strcmp(line, "big_foes_defeated")) total.big_foes = (uint32_t)strtoul(v, NULL, 10);
         else if (!strcmp(line, "damage_dealt")) total.dealt = (uint32_t)strtoul(v, NULL, 10);
         else if (!strcmp(line, "damage_taken")) total.taken = (uint32_t)strtoul(v, NULL, 10);
         else if (!strcmp(line, "hits_taken")) total.hits_taken = (uint32_t)strtoul(v, NULL, 10);
@@ -640,6 +642,7 @@ void combat_stats_save(const char *base_dir) {
     fprintf(f, "# Crusader of Centy play stats, over all sessions\n");
     fprintf(f, "play_seconds=%.0f\n", total.play_s);
     fprintf(f, "enemies_defeated=%u\n", total.defeated);
+    fprintf(f, "big_foes_defeated=%u\n", total.big_foes);
     fprintf(f, "damage_dealt=%u\n", total.dealt);
     fprintf(f, "damage_taken=%u\n", total.taken);
     fprintf(f, "hits_taken=%u\n", total.hits_taken);
@@ -651,6 +654,12 @@ void combat_stats_save(const char *base_dir) {
 static void hms(char *out, size_t n, double s) {
     int t = (int)s;
     snprintf(out, n, "%d:%02d:%02d", t / 3600, t / 60 % 60, t % 60);
+}
+
+void combat_totals(CombatTotals *out) {
+    out->defeated = total.defeated;
+    out->big_foes = total.big_foes;
+    out->play_s = total.play_s;
 }
 
 int combat_stats_lines(char lines[][64], int max) {

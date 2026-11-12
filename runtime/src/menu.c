@@ -13,6 +13,7 @@
 #include "automap.h"
 #include "story.h"
 #include "ngplus.h"
+#include "achieve.h"
 #include "genesis.h"
 #include "game.h"
 #include "savestate.h"
@@ -371,6 +372,8 @@ static void open_common(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, in
 
 /* The Journal row's view: 0 the story, 1 the animals (left / right). */
 static int journal_view;
+/* The Stats row's view: 0 the stats and bestiary, 1 the achievements. */
+static int stats_view;
 
 void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x, int game_y, int game_w, int game_h,
                int out_w, int out_h, float window_to_pixels) {
@@ -378,6 +381,7 @@ void menu_open(const uint32_t *fb, int fb_w, int fb_h, int fb_pitch, int game_x,
     launcher = false;
     automap_view_reset();
     journal_view = 0;
+    stats_view = 0;
     open_common(fb, fb_w, fb_h, fb_pitch, game_x, game_y, game_w, game_h, out_w, out_h, window_to_pixels);
 }
 
@@ -695,6 +699,7 @@ void menu_side_step(int dir) {
     if (!it || it->kind != ITEM_ACTION) return;
     if (it->id == ACT_MAP) { automap_view_step(dir); sound(0); }
     if (it->id == ACT_JOURNAL) { journal_view ^= 1; sound(0); }
+    if (it->id == ACT_STATS) { stats_view ^= 1; sound(0); }
 }
 
 /* `s` cut to fit `w`, with an ellipsis when cut. */
@@ -752,19 +757,57 @@ static void draw_animals(float alpha) {
     }
 }
 
-/* The journal: the story so far, from the game's own lines (story.c). */
-static void draw_journal(float alpha) {
-    /* The two views, left / right between them. */
+/* The achievements: each with whether and when it was met (achieve.c). */
+static void draw_achievements(float alpha) {
+    int n = achieve_count(), met = 0;
+    for (int i = 0; i < n; i++) met += achieve_get(i)->unlocked != 0;
+    char head[64];
+    snprintf(head, sizeof head, "%d of %d achievements", met, n);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X, PIC_Y + 2, C_TEXT, C_TEXT, alpha);
+    snprintf(head, sizeof head, "%d%%", met * 100 / n);
+    float hw = ui_text_width(head, FONT_SB, 17, 600, 0);
+    ui_draw_text(head, FONT_SB, 17, 600, 0, PIC_X + PIC_W - hw, PIC_Y + 2, C_GOLD, C_GOLD, alpha);
+    float by = PIC_Y + 32;
+    ui_fill_rect(PIC_X, by, PIC_W, 4, C_LINE, alpha);
+    ui_fill_rect(PIC_X, by, PIC_W * met / (float)n, 4, C_GOLD, alpha);
+    /* Two columns: title over what it asks; met ones in gold with the date. */
+    float col_w = (PIC_W - 24) / 2, y0 = by + 18, row_h = 47;
+    int rows = (n + 1) / 2;
+    for (int i = 0; i < n; i++) {
+        const Achievement *a = achieve_get(i);
+        float x = PIC_X + (i / rows) * (col_w + 24), y = y0 + (i % rows) * row_h;
+        bool on = a->unlocked != 0;
+        ui_fill_rect(x, y + 3, 3, 33, on ? C_GOLD : C_LINE, alpha);
+        ui_draw_text(a->title, FONT_SB, 15, 600, 0, x + 12, y, on ? C_GOLD : C_DIM, on ? C_GOLD : C_DIM, alpha);
+        char buf[160];
+        if (on) {
+            char when[32];
+            strftime(when, sizeof when, "%d %b %Y", localtime(&a->unlocked));
+            snprintf(buf, sizeof buf, "%s  \xC2\xB7  %s", a->about, when);
+        } else snprintf(buf, sizeof buf, "%s", a->about);
+        char fit[160];
+        fit_text(fit, sizeof fit, buf, FONT, 13, 400, col_w - 12);
+        ui_draw_text(fit, FONT, 13, 400, 0, x + 12, y + 19, on ? C_TEXT : C_FAINT, on ? C_TEXT : C_FAINT, alpha);
+    }
+}
+
+/* The two views of a row shown on the right, left / right between them. */
+static void view_switch(const char *a, const char *b, int view, float alpha) {
     float x = PIC_X;
-    const char *views[2] = { "STORY", "ANIMALS" };
+    const char *views[2] = { a, b };
     ui_draw_text("\xE2\x86\x90", FONT, 13, 400, 0, x, PIC_Y - 34, C_FAINT, C_FAINT, alpha);
     x += 22;
     for (int v = 0; v < 2; v++) {
-        Rgb c = v == journal_view ? C_GOLD : C_DIM;
+        Rgb c = v == view ? C_GOLD : C_DIM;
         ui_draw_text(views[v], FONT_SB, 12, 600, 1.5f, x, PIC_Y - 32, c, c, alpha);
         x += ui_text_width(views[v], FONT_SB, 12, 600, 1.5f) + 18;
     }
     ui_draw_text("\xE2\x86\x92", FONT, 13, 400, 0, x - 4, PIC_Y - 34, C_FAINT, C_FAINT, alpha);
+}
+
+/* The journal: the story so far, from the game's own lines (story.c). */
+static void draw_journal(float alpha) {
+    view_switch("STORY", "ANIMALS", journal_view, alpha);
     if (journal_view) { draw_animals(alpha); return; }
     StoryEvent ev[16];
     int done, total, n = story_events(ev, 16, &done, &total);
@@ -843,6 +886,8 @@ static void draw_side(float t, float alpha) {
     }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_JOURNAL) { draw_journal(alpha); return; }
     if (it && it->kind == ITEM_ACTION && it->id == ACT_STATS) {
+        view_switch("STATS", "ACHIEVEMENTS", stats_view, alpha);
+        if (stats_view) { draw_achievements(alpha); return; }
         char lines[12][64];
         int n = combat_stats_lines(lines, 12);
         float y = PIC_Y + 6;

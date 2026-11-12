@@ -97,6 +97,7 @@ add_executable(CrusaderOfCenty WIN32
   runtime/src/automap.c
   runtime/src/story.c
   runtime/src/ngplus.c
+  runtime/src/achieve.c
   runtime/src/hd.c
   runtime/src/filter.c
   runtime/src/input.c

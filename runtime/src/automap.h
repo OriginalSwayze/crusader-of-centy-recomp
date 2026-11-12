@@ -32,4 +32,7 @@ bool automap_draw(float x, float y, float w, float h, float t, float alpha);
 typedef struct { int map, index, areas, percent, doors; bool current; const char *place; } AutomapInfo;
 void automap_info(AutomapInfo *out);
 
+/* How many of the game's places (story.h) have an area visited. */
+int automap_places(void);
+
 #endif
