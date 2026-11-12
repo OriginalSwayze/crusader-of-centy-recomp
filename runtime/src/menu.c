@@ -85,7 +85,7 @@ static const char *about(const Item *it) {
         case ACT_AUTOLOAD: return "Goes back to the last autosave, made each time the story moves on (Gameplay > Autosave).";
         case ACT_PHOTO: return "Freezes the game for a picture: hide the HUD, then save it at the internal resolution with every effect. F9 in play.";
         case ACT_RESET: return "Starts the game over from the beginning. Unsaved progress is lost.";
-        case ACT_NGPLUS: return "Starts the story over keeping Corona's maximum health and money: after the title, pick an empty file and name it. Animals join again as the story goes. Unsaved progress is lost.";
+        case ACT_NGPLUS: return "Starts the story over keeping your maximum health and money: after the title, pick an empty file and name it. Animals join again as the story goes. Unsaved progress is lost.";
         case ACT_QUIT: return "Closes the game. Unsaved progress is lost; the game's own saves stay.";
         case ACT_EXIT: return "Closes the game.";
         case ACT_CONTROLS: return "The keyboard key and controller button for every action.";

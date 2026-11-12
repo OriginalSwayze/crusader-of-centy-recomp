@@ -55,11 +55,15 @@ static int list_len(uint32_t a, int size, int cap) {
     return i;
 }
 
+/* The hero's name (text code $F1) is kept as this mark in the lines read, and filled in with
+ * the name the player gave ($FFFE4A, in the text's letters, ending at $FF) when they are shown. */
+#define HERO ""
+
 static const char *punct(uint8_t b) {
     switch (b) {
     case 0x3F: return ","; case 0x40: return "."; case 0x41: return "\""; case 0x42: return "!";
     case 0x46: return "'"; case 0x5E: return "?"; case 0x5F: return ":"; case 0x60: return "-";
-    case 0x5D: case 0xFE: return " "; case 0xF1: return "Corona";
+    case 0x5D: case 0xFE: return " "; case 0xF1: return HERO;
     default: return NULL;
     }
 }
@@ -173,7 +177,46 @@ void story_gained(int flag) {
     if (norder < FLAGS) { order[norder++] = (uint16_t)flag; dirty = true; }
 }
 
+/* The player's name for the hero, as the game shows it; "Corona" when none is set. */
+static void hero_name(char *out, size_t n) {
+    size_t k = 0;
+    for (uint32_t a = 0xFE4A; a < 0xFE4A + 8 && k + 1 < n; a++) {
+        uint8_t c = bus.ram[a];
+        if (c == 0xFF) break;
+        char ch = c == 0 ? ' ' : c <= 0x0A ? (char)('0' + c - 1) : c <= 0x24 ? (char)('A' + c - 0x0B) : c <= 0x3E ? (char)('a' + c - 0x25) : 0;
+        if (!ch) break;
+        out[k++] = ch;
+    }
+    while (k && out[k - 1] == ' ') k--;
+    out[k] = 0;
+    if (!k) snprintf(out, n, "Corona");
+}
+
+/* `src` with the hero's mark replaced by the name, into `buf`. */
+static const char *with_name(const char *src, char *buf, size_t n) {
+    if (!strchr(src, HERO[0])) return src;
+    char name[24];
+    hero_name(name, sizeof name);
+    size_t k = 0;
+    for (const char *p = src; *p && k + 1 < n; p++) {
+        if (*p != HERO[0]) { buf[k++] = *p; continue; }
+        for (const char *q = name; *q && k + 1 < n; q++) buf[k++] = *q;
+    }
+    buf[k] = 0;
+    return buf;
+}
+
+static char shown_buf[64][2][300];
+static int shown_next;
+
+/* An event as shown: its speaker and line with the hero's name filled in. */
+static StoryEvent shown(const char *who_s, const char *line_s) {
+    char (*b)[300] = shown_buf[shown_next++ % 64];
+    return (StoryEvent){ with_name(who_s, b[0], sizeof b[0]), with_name(line_s, b[1], sizeof b[1]) };
+}
+
 int story_events(StoryEvent *out, int max, int *done, int *total) {
+    shown_next = 0;
     name_flags();
     *total = named;
     *done = 0;
@@ -184,14 +227,14 @@ int story_events(StoryEvent *out, int max, int *done, int *total) {
         int f = order[i];
         if (!line[f] || !is_set(f) || listed[f]) continue;
         listed[f] = true;
-        out[n++] = (StoryEvent){ who[f], line[f] };
+        out[n++] = shown(who[f], line[f]);
     }
     /* Then the rest, latest in the cartridge's text order first. */
     for (int b = 255; b >= 0 && n < max; b--)
         for (int f = FLAGS - 1; f >= 0 && n < max; f--)
             if (line[f] && bank_of[f] == b && is_set(f) && !listed[f]) {
                 listed[f] = true;
-                out[n++] = (StoryEvent){ who[f], line[f] };
+                out[n++] = shown(who[f], line[f]);
             }
     return n;
 }
@@ -232,7 +275,7 @@ void story_save(const char *base_dir) {
 #define ANIMAL_FIRST 5
 #define ANIMAL_LAST  20
 
-static char animal_name[ANIMALS][32], animal_line[ANIMALS][256];
+static char animal_name[ANIMALS][32], animal_line[ANIMALS][256], animal_shown[ANIMALS][256];
 static const GameVersion *animals_for;
 static bool animals_read;
 
@@ -264,7 +307,7 @@ int story_animals(StoryAnimal out[ANIMALS], int *joined) {
     for (int k = 0; k < ANIMALS; k++) {
         int bit = ANIMAL_FIRST + k;
         out[k].name = animal_name[k];
-        out[k].line = animal_line[k];
+        out[k].line = with_name(animal_line[k], animal_shown[k], sizeof animal_shown[k]);
         out[k].joined = (have >> bit) & 1;
         out[k].slot = a == bit ? 1 : b == bit ? 2 : 0;
         if (out[k].slot) out[k].joined = true;

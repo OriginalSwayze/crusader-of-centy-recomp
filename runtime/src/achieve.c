@@ -19,7 +19,7 @@ typedef enum { ANIMALS_N, PLACES_N, STORY_PCT, DEFEATED_N, KINDS_N, BIG_FOES_N, 
 typedef struct { const char *key, *title, *about; Measure what; int goal; } Goal;
 
 static const Goal goals[] = {
-    { "first_friend",   "First Friend",        "An animal joins Corona.",                          ANIMALS_N, 1 },
+    { "first_friend",   "First Friend",        "An animal joins the group.",                          ANIMALS_N, 1 },
     { "menagerie",      "Menagerie",           "Eight animals have joined.",                       ANIMALS_N, 8 },
     { "every_animal",   "Friend to All",       "All sixteen animals have joined.",                 ANIMALS_N, 16 },
     { "setting_out",    "Setting Out",         "Visit three places.",                              PLACES_N, 3 },
